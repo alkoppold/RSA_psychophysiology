@@ -129,9 +129,9 @@ RSMSingleValue<-function(OriginalData,nVariables,CharContainingNumberFromVector,
     #Create Matrix for Physiological variable for each participant
     #################################################
     Single<-sp%>%
-      filter(.[[1]] == Vp_count$VP[i])
+      filter(.[[1]] == Vp_count$ID[i]) # alina
     gaSingle<- Single%>%
-      spread(sort,ncol(Single))
+      spread(sort,ncol(Single))  #line with all SCR responses for one subject
     for(ii in 1:(length(gaSingle)-1)) {
       for (iii in 1:(length(gaSingle)-1)) {
         corrMatrixVpSingle[ii,iii]= MaxValue-(abs(gaSingle[1,ii+1]-gaSingle[1,iii+1]))
@@ -145,8 +145,8 @@ RSMSingleValue<-function(OriginalData,nVariables,CharContainingNumberFromVector,
     corr_prep$var2<-str_sub(corr_prep$var2,2,-1L)
     corr_prep$var1<-as.numeric(corr_prep$var1)
     corr_prep$var2<-as.numeric(corr_prep$var2)
-    VP_name<- Vp_count$VP[i]
-    Vp_name<-as.character(Vp_count$VP[i])
+    VP_name<- Vp_count$ID[i] #alina
+    Vp_name<-as.character(Vp_count$ID[i]) #alina
     new_name<- paste("VP",Vp_name, sep= "")
     corr_prep<-corr_prep%>%
       arrange_at("var1")%>%
