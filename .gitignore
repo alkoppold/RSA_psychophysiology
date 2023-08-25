@@ -1,0 +1,5 @@
+RSA/data
+RSA/ASM_rawdata
+.DS_Store
+RSA/.DS_Store
+*.data           # ignore all data files
