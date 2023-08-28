@@ -172,3 +172,16 @@ RSMIndividual(emg_SingleAlina_corr_prep_all,BehavioralSingleAlina_invAK_corr_pre
 ###########################################################
 ###########################################################
 # line 874
+# OriginalData<- SCR_SingleAlina_corr_prep_all
+# ModelData1<-BehavioralSingleAlina_SV_invAK_corr_prep_all
+# ModelData2<- BehavioralSingleAlina_SV_NN_corr_prep_all
+# whichModel<- c("ModelData1")#,"ModelData2")
+# VariableOriginal<-"SCRinvAKAroSingleValue"
+# VariableModel2<- "NNAro"
+# VariableModel1<- "invAKAro"
+# seedPer<-49
+# nPermutations<-100
+# PlotRSMReg<-1
+# Category = "VP"
+PermutationTestRegModels<-(OriginalData,ModelData1,ModelData2,VariableOriginal,VariableModel1,VariableModel2,
+                                   Category,nPermutations,seedPer,PlotRSMReg)
