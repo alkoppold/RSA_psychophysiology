@@ -1,0 +1,680 @@
+---
+title: "RSA STR PSL"
+author: "Carlos Ventura-Bort"
+date: "2023-09-04"
+output: html_document
+---
+  
+``` {r,include=FALSE}
+#Adapt path accordingly
+#load funcitons
+source ('C:/Users/cvent/Desktop/RESEARCH/RSA_LondorfLab/RSAFunctions_only010923.R') 
+#Variable to load data and avoid redoing all analysis. 
+loadData<-1
+if (loadData==1){
+  load("RSA_STR_Sound_VB22_Def.RData")
+  loadData<-1
+}
+#Set the wd
+setwd("C:/Users/cvent/Desktop/RESEARCH/RSA_LondorfLab")
+```
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+``` {r,include=FALSE}
+#######
+##Libraries
+library(base)
+library(psycho)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(fs)
+library (lme4)
+library(lmerTest)
+library(sjPlot)
+library(rstatix)
+library(Hmisc)
+# install.packages("extrafont")
+library(extrafont)
+library (ggbeeswarm)
+library(BayesFactor)
+library(bayestestR)
+library(glue)
+library(viridis)
+library(ggpubr)
+library(ggExtra)
+#################################################
+### Load Fonts for figures
+#################################################
+loadfonts(device="win")       #Register fonts for Windows bitmap output
+windowsFonts(Times=windowsFont("Times"))
+```
+
+# Outline  
+## *RSA from Ventura-Bort et al., 2022:*
+## **Passive Sound Listening Task**
+### STR Based on T Amplitudes
+### Model Testing of Valence: Nearest Neighborhood, Anna Karenina (AK) and inverted AK  
+### Model Testing Beyond Valence
+
+##  **Startle based on T Amplitudes** 
+```{r, readRDS myData2,include=FALSE }
+#load the data
+if (loadData==0){
+load("LETOS_r_STR_pic_sou_ima_sortVal.RData") 
+STR_RSM<-LETOS_r_STR_pic_sou_ima_sortVal
+#------------------------
+SoundSTRVal<-STR_RSM  %>%
+  filter(Task=="2")
+SoundSTRVal<-SoundSTRVal%>%droplevels()
+SoundSTRVal$Category<-ifelse(SoundSTRVal$trial_type==8,"Pl",
+                           ifelse(SoundSTRVal$trial_type==10,"Un","Ne"))
+SoundSTRValMod<-SoundSTRVal%>%
+  select(Vp,Category, Val, T_scores) 
+
+#Matrix should contain VP, Behavioral Variable (e.g., Aro), 
+# variable coding the sorting (sortVal), Variables for the vector (variables containing STR)
+SoundSTRVal<-SoundSTRVal%>%
+  select(Vp,sortVal, T_scores) 
+
+#----------------- DEFINE PARAMETERS FOR RUNING  for STR and Valence
+#rename to favor the function. 
+SoundSTRVal<-SoundSTRVal%>%
+  rename(sort= sortVal)
+MaxValue<- max(SoundSTRVal$T_scores, na.rm=T)
+
+OriginalData<-SoundSTRVal
+nVariables<-18 # this variable defines the number of cells e.g., Soundtures presented
+CharContainingNumberFromVector<-4 #Character containing number from variables coding vector.
+#e.g., STR1, STR2, STR3... the character is 4: 1, 2, 3...
+### Select the variables needed for the loop: VP, Variable sorting, Vector values
+VariableType<-"STR"
+sortType<- "Valence"
+
+
+RSMSingleValue(SoundSTRVal,nVariables,CharContainingNumberFromVector,VariableType,sortType,MaxValue)
+}
+```
+
+```{r}
+
+STR_Valence_RSM
+```
+
+## *Models of Valence*  
+
+### the RSMs of SCR will be tested against two models: 
+the Nearest Neighborhood model which assumes that the closer trials are in valence, the more similar they are  
+from the Anna Karenina (AK) model which assumes that trials with high valence will be more similar to each other than those rates as low arousal,
+we will derive the inverted model (Inverted AK Model), which assumes that lower values of valence are similar to each other, but higher values are more dissimilar
+```{r, readRDS myData3,include=FALSE }
+#Create Matrix based on single BEHAVIORAL
+if (loadData==0){
+  SoundBehaValsV<-STR_RSM  %>%
+  filter(Task==2)%>%
+  dplyr::select(Vp, sortVal,Val)
+SoundBehaValsV<-SoundBehaValsV%>%
+  rename(Behavioral= Val)%>%
+  rename(sort= sortVal)
+
+SoundBehaValsV<-SoundBehaValsV%>%droplevels()
+# OriginalData<-SoundBehaValsV
+MaxValue<- max(SoundBehaValsV$Behavioral, na.rm=T)
+
+nVariables<-18 # this variable defines the number of cells e.g., Soundtures presented
+CharContainingNumberFromVector<-3 #Character containing number from variables coding vector.
+#e.g., STR1, STR2, STR3... the character is 4: 1, 2, 3...
+### Select the variables needed for the loop: VP, Variable sorting, Vector values
+VariableType<-"Behav_Single_STR"
+sortType<- "Valence"
+
+RSMSingleValue(SoundBehaValsV,nVariables,CharContainingNumberFromVector,VariableType,sortType, MaxValue)
+
+VariableType<-"Behav_Single_STR_AK"
+sortType<- "Valence"
+
+RSMSingleValueAK(SoundBehaValsV,nVariables,CharContainingNumberFromVector,VariableType,sortType, MaxValue)
+
+VariableType<-"Behav_Single_STR_invAK"
+sortType<- "Valence"
+
+RSMSingleValueinvAK(SoundBehaValsV,nVariables,CharContainingNumberFromVector,VariableType,sortType, MaxValue)
+
+  
+}
+```
+
+```{r}
+Behav_Single_STR_Valence_RSM
+Behav_Single_STR_AK_Valence_RSM
+Behav_Single_STR_invAK_Valence_RSM
+```
+
+### Model tested againt each Model 
+```{r, readRDS myData41,include=FALSE }
+if (loadData==0){
+  
+
+Model<-"ValRatingsNN"
+Data<- "STRSingle"
+
+RSMIndividual(STR_corr_prep_all,Behav_Single_STR_corr_prep_all,Model,Data)
+
+
+Model<-"ValRatingsAK"
+Data<- "STRSingle"
+RSMIndividual(STR_corr_prep_all,Behav_Single_STR_AK_corr_prep_all,Model,Data)
+
+
+
+Model<-"ValRatingsinvAK"
+Data<- "STRSingle"
+RSMIndividual(STR_corr_prep_all,Behav_Single_STR_invAK_corr_prep_all,Model,Data)
+
+
+# 
+seedPer<-55
+nPermutations<-10000
+VariableOriginal<-"STR"
+VariableModel<- "ValRatingsNN"
+
+PermutationTest(STR_corr_prep_all,Behav_Single_STR_corr_prep_all,VariableOriginal,VariableModel,nPermutations,seedPer)
+
+#AK
+seedPer<-55
+nPermutations<-10000
+VariableOriginal<-"STR"
+VariableModel<- "ValRatingsAK"
+PermutationTest(STR_corr_prep_all,Behav_Single_STR_AK_corr_prep_all,VariableOriginal,VariableModel,nPermutations,seedPer)
+
+#invAK
+seedPer<-55
+nPermutations<-10000
+VariableOriginal<-"STR"
+VariableModel<- "ValRatingsinvAK"
+PermutationTest(STR_corr_prep_all,Behav_Single_STR_invAK_corr_prep_all,VariableOriginal,VariableModel,nPermutations,seedPer)
+}
+
+```
+
+
+```{r}
+ValRatingsNN_STRSingle_IndividualPlot
+          ValRatingsAK_STRSingle_IndividualPlot
+          ValRatingsinvAK_STRSingle_IndividualPlot
+
+
+
+ggarrange( STR_ValRatingsNN_PermOutput[["Output"]][["PermutationPlot"]],
+           STR_ValRatingsAK_PermOutput[["Output"]][["PermutationPlot"]],
+           STR_ValRatingsinvAK_PermOutput[["Output"]][["PermutationPlot"]],
+           labels = c("NN", "AK", "invAK" ),   hjust=-2,
+           ncol = 1, nrow =3, widths = c(10,10))
+```
+
+
+### Test the unique contribution of each model (i.e., NN and AK)
+#### **VECTOR**
+```{r, readRDS myData4,include=FALSE }
+#------------ VECtOR------------------
+if (loadData==0){
+  
+  #PermutationwithRegression
+  OriginalData<- STR_corr_prep_all
+  ModelData1<-Behav_Single_STR_AK_corr_prep_all
+  ModelData2<- Behav_Single_STR_corr_prep_all
+  VariableOriginal<-"STR_Single"
+  VariableModel1<- "ValRatings_AK"
+  VariableModel2<- "ValRatings_NN"
+  seedPer<-49
+  nPermutations<-10000
+  PlotRSMReg<-1
+  Category = "Trials"
+  
+  PermutationTestRegModels(OriginalData,ModelData1,
+                       ModelData2,VariableOriginal,VariableModel1,VariableModel2,Category,
+                           nPermutations,seedPer,PlotRSMReg)
+  
+  
+  #Individual Data
+  RSMIndividualRegression(OriginalData,ModelData1,ModelData2,VariableOriginal,VariableModel1,VariableModel2) 
+}
+```
+
+```{r}
+ggarrange(STR_Single_ValRatings_AK_ValRatings_NN_IndividualPlotRegression[[1]],
+          STR_Single_ValRatings_AK_ValRatings_NN_IndividualPlotRegression[[2]],
+          labels = c("", "" ),   vjust=-7,
+          ncol = 2, nrow =1, widths = c(5,5))
+
+
+ggarrange(STR_Single_ValRatings_AK_ValRatings_NN_PermOutputRegr[["Ouput"]][["RSMPlotRegressionM1"]],
+          STR_Single_ValRatings_AK_ValRatings_NN_PermOutputRegr[["Ouput"]][["RSMPlotRegressionM2"]],
+          labels = c("", "" ),   vjust=-7,
+          ncol = 2, nrow =1, widths = c(5,5))
+
+ggarrange( STR_Single_ValRatings_AK_ValRatings_NN_PermOutputRegr[["Ouput"]][["PermutationPlotM1"]],
+           STR_Single_ValRatings_AK_ValRatings_NN_PermOutputRegr[["Ouput"]][["PermutationPlotM2"]],
+           labels = c("iAK", "NN"),   vjust=(12),
+           ncol = 1, nrow =2, widths = c(5,5))
+```
+
+
+### Relationship between Similarity measures of the NN and invAK Model  
+```{r, readRDS myData6,include=FALSE }
+if (loadData==0){
+  #VECTOR
+  STRSimComparison<-inner_join(ValRatingsAK_STRSingle_tableCorrelation,
+                               ValRatingsNN_STRSingle_tableCorrelation,
+                               by = "VP", suffix = c("AK","NN"))
+  
+  cor.testSTRSimCom<-cor.test(STRSimComparison$CorrelationAK,STRSimComparison$CorrelationNN)
+  
+  p<- ggplot(STRSimComparison, aes(x=CorrelationAK, y=CorrelationNN)) +
+    geom_point(shape=21, color = "black",fill="gray75", size=5)+
+    theme(legend.position="none")+
+    stat_smooth(method = "lm",
+                formula = y ~ x,
+                geom = "smooth", color = "red")+
+    theme_classic()+
+    stat_cor(method = "pearson")+
+    ggtitle("SCR Vector")
+  
+  STRCorrModComp<- ggMarginal(p ,type="histogram", fill = "slateblue", xparams = list(  bins=100))
+  
+  
+} 
+```
+
+```{r}
+STRCorrModComp
+```
+### Plot individual participants as example:   
+
+#### High in AK and and in NN Model
+``` {r}
+#Plot VP 
+#-------------- Plot RSM Matrix
+dataOriginal<-STR_corr_prep_all#data coming up from RSM functions it should contain the variable mean_all
+mypalette<- numeric()#colors
+minimum<-numeric()#scale
+maximum<-numeric()# scale
+Category<- "trials" # VP or trials
+Participant<- "VP1" # factor() #if individual participants are to be selected,
+sortType<- "Valence" #variable to sort on
+PlotMatrix(dataOriginal, minimum,maximum,Category,sortType,Participant, mypalette)
+
+```
+
+
+#### High in invAK and close to 0 in NN Model  
+``` {r}
+#Plot VP 
+dataOriginal<-STR_corr_prep_all#data coming up from RSM functions it should contain the variable mean_all
+mypalette<- numeric()#colors
+minimum<-numeric()#scale
+maximum<-numeric()# scale
+Category<- "trials" # VP or trials
+Participant<- "VP28" # factor() #if individual participants are to be selected,
+sortType<- "Valence" #variable to sort on
+PlotMatrix(dataOriginal, minimum,maximum,Category,sortType,Participant, mypalette)
+```
+
+
+#### Low in invAK and moderate in NN Model
+``` {r}
+#Plot VP 
+dataOriginal<-STR_corr_prep_all#data coming up from RSM functions it should contain the variable mean_all
+mypalette<- numeric()#colors
+minimum<-numeric()#scale
+maximum<-numeric()# scale
+Category<- "trials" # VP or trials
+Participant<- "VP8" # factor() #if individual participants are to be selected,
+sortType<- "Valence" #variable to sort on
+PlotMatrix(dataOriginal, minimum,maximum,Category,sortType,Participant, mypalette)
+
+```
+
+##  **Model Testing Beyond Valence Is the AK the best fitting model?**  
+### Model Time  
+```{r, readRDS myData7,include=FALSE }
+if (loadData==0){
+  #----------- MODEL TIME-----------------------
+  #Create Matrix based on single BEHAVIORAL
+  SoundSTRValsVTime<-STR_RSM  %>%
+  filter(Task==2)%>%
+  dplyr::select(Vp, sortVal,trial_order)%>%droplevels()
+SoundSTRValsVTime<-SoundSTRValsVTime%>%
+  rename(Behavioral= trial_order)%>%
+  rename(sort= sortVal)
+SoundSTRValsVTime$Behavioral<-as.numeric(SoundSTRValsVTime$Behavioral)
+  # OriginalData<-SoundEdaArosV
+  MaxValue<- max(SoundSTRValsVTime$Behavioral, na.rm=T)
+  
+  nVariables<-18 # this variable defines the number of cells e.g., Soundtures presented
+  CharContainingNumberFromVector<-3 #Character containing number from variables coding vector.
+  #e.g., EDA1, EDA2, EDA3... the character is 4: 1, 2, 3...
+  ### Select the variables needed for the loop: VP, Variable sorting, Vector values
+  VariableType<-"Behav_SingleTimeSortedbyValence"
+  sortType<- "TimeSortedbyValence"
+  
+  RSMSingleValue(SoundSTRValsVTime,nVariables,CharContainingNumberFromVector,VariableType,sortType, MaxValue)
+  
+  Model<-"STR"
+  Data<- "TimeSortedByValence"
+  RSMIndividual(STR_corr_prep_all,Behav_SingleTimeSortedbyValence_corr_prep_all,Model,Data)
+  
+  
+}
+```
+
+
+```{r}
+STR_TimeSortedByValence_IndividualPlot
+```
+
+### Test whether the AK model is contributing beyond time  
+```{r, readRDS myData8,include=FALSE }
+if (loadData==0){
+  # Individual Regression
+  OriginalData<- STR_corr_prep_all
+  ModelData1<-Behav_Single_STR_AK_corr_prep_all
+  ModelData2<- Behav_SingleTimeSortedbyValence_corr_prep_all
+  VariableOriginal<-"STR"
+  VariableModel1<- "Val_AK"
+  VariableModel2<- "Time_NN"
+  
+  RSMIndividualRegression(OriginalData,ModelData1,ModelData2,VariableOriginal,VariableModel1,VariableModel2) 
+  
+  #Amplitude
+  SingleSimComparisonTime<-inner_join(ValRatingsAK_STRSingle_tableCorrelation,
+                                      STR_TimeSortedByValence_tableCorrelation,
+                                      by = "VP", suffix = c("AK","Time"))
+  
+  cor.testSingSimComTime<-cor.test(SingleSimComparisonTime$CorrelationAK,SingleSimComparisonTime$CorrelationTime)
+  
+  p<- ggplot(SingleSimComparisonTime, aes(x=CorrelationAK, y=CorrelationTime)) +
+    geom_point(shape=21, color = "black",fill="gray75", size=5)+
+    theme(legend.position="none")+
+    stat_smooth(method = "lm",
+                formula = y ~ x,
+                geom = "smooth", color = "red")+
+    theme_classic()+
+    stat_cor(method = "pearson")+
+    ggtitle("SCR Single")
+  
+  SCRSingleCorrModCompTime<- ggMarginal(p ,type="histogram", fill = "slateblue", xparams = list(  bins=100))
+}
+# save.image("RSA_SCR_Sound_VB22_Def.RData")
+
+```
+
+```{r}
+SCRSingleCorrModCompTime
+
+ggarrange(STR_Val_AK_Time_NN_IndividualPlotRegression[[1]],
+          STR_Val_AK_Time_NN_IndividualPlotRegression[[2]],
+          labels = c("", "" ),   vjust=-7,
+          ncol = 2, nrow =1, widths = c(5,5))
+
+
+
+```
+
+
+### Model Category (Pleasant, Unpleasant, Neutral)  
+```{r, readRDS myData88,include=FALSE }
+if (loadData==0){
+  #----------------------------- MODEL Category --------------------------------------
+ SoundSTRValsVCat<-STR_RSM  
+
+#  SoundSTRValsVCat$Category<-ifelse(SoundSTRValsVCat$trial_type==8,"Pl",
+#                                    ifelse(SoundSTRValsVCat$trial_type==10,"Un","Ne"))
+ 
+   SoundSTRValsVCat<-SoundSTRValsVCat%>%
+     dplyr::select(Vp, sortVal,Category)%>%droplevels()
+
+   
+  SoundSTRValsVCat<-SoundSTRValsVCat%>%
+    rename(Behavioral= Category)%>%
+    rename(sort= sortVal)
+  # OriginalData<-SoundEdaArosV
+  MaxValue<- 1
+  nVariables<-18 # this variable defines the number of cells e.g., Soundtures presented
+  CharContainingNumberFromVector<-3 #Character containing number from variables coding vector.
+  #e.g., EDA1, EDA2, EDA3... the character is 4: 1, 2, 3...
+  ### Select the variables needed for the loop: VP, Variable sorting, Vector values
+  VariableType<-"Behav_SingleCategorySortedbyValence"
+  sortType<- "CategorySortedbyValence"
+  
+  RSMSingleValueFactor(SoundSTRValsVCat,nVariables,CharContainingNumberFromVector,VariableType,sortType, MaxValue)
+  
+  
+  Model<-"STRSingle"
+  Data<- "Categorysortedbyvalence"
+  RSMIndividual(STR_corr_prep_all,Behav_SingleCategorySortedbyValence_corr_prep_all,Model,Data)
+  
+}
+# save.image("RSA_SCR_Sound_VB22_Def.RData")
+
+```
+
+```{r}
+STRSingle_Categorysortedbyvalence_IndividualPlot
+```
+
+
+### Test whether the AK model is contributing beyond Category
+```{r, readRDS myData10,include=FALSE }
+if (loadData==0){
+  # Individual Regression
+  OriginalData<- STR_corr_prep_all
+  ModelData1<-Behav_Single_STR_AK_corr_prep_all
+  ModelData2<- Behav_SingleCategorySortedbyValence_corr_prep_all
+  VariableOriginal<-"STRSingle"
+  VariableModel1<- "Valence_AK"
+  VariableModel2<- "Category_Factor"
+  
+  RSMIndividualRegression(OriginalData,ModelData1,ModelData2,VariableOriginal,VariableModel1,VariableModel2) 
+  
+  #Amplitude
+  SingleSimComparisonCat<-inner_join(ValRatingsAK_STRSingle_tableCorrelation,
+                                     STRSingle_Categorysortedbyvalence_tableCorrelation,,
+                                     by = "VP", suffix = c("AK","Cat"))
+  
+  cor.testSingSimComCat<-cor.test(SingleSimComparisonCat$CorrelationAK,SingleSimComparisonCat$CorrelationCat)
+  
+  p<- ggplot(SingleSimComparisonCat, aes(x=CorrelationAK, y=CorrelationCat)) +
+    geom_point(shape=21, color = "black",fill="gray75", size=5)+
+    theme(legend.position="none")+
+    stat_smooth(method = "lm",
+                formula = y ~ x,
+                geom = "smooth", color = "red")+
+    theme_classic()+
+    stat_cor(method = "pearson")+
+    ggtitle("SCR Single")
+  
+  SCRSingleCorrModCompCat<- ggMarginal(p ,type="histogram", fill = "slateblue", xparams = list(  bins=100))
+}
+# save.image("RSA_SCR_Sound_VB22_Def.RData")
+
+```
+
+```{r}
+SCRSingleCorrModCompCat
+
+ggarrange(STRSingle_Valence_AK_Category_Factor_IndividualPlotRegression[[1]],
+          STRSingle_Valence_AK_Category_Factor_IndividualPlotRegression[[2]],
+          labels = c("", "" ),   vjust=-7,
+          ncol = 2, nrow =1, widths = c(5,5))
+
+
+
+```
+
+
+
+### Model Valence
+```{r, readRDS myData9,include=FALSE }
+if (loadData==0){
+  #----------------------------- MODEL Arousal --------------------------------------
+  SoundBehavArosVVal<-STR_RSM  %>%
+  filter(Task==2)%>%
+    dplyr::select(Vp, sortVal,Aro)
+  SoundBehavArosVVal<-SoundBehavArosVVal%>%
+    rename(Behavioral= Aro)%>%
+    rename(sort= sortVal)%>%droplevels()
+  # OriginalData<-SoundEdaArosV
+  MaxValue<- max(SoundBehavArosVVal$Behavioral, na.rm=T)
+  
+  nVariables<-36 # this variable defines the number of cells e.g., Soundtures presented
+  CharContainingNumberFromVector<-3 #Character containing number from variables coding vector.
+  #e.g., EDA1, EDA2, EDA3... the character is 4: 1, 2, 3...
+  ### Select the variables needed for the loop: VP, Variable sorting, Vector values
+  VariableType<-"Behav_SingleAroSortedbyValence"
+  sortType<- "AroSortedbyValence"
+  
+  RSMSingleValue(SoundBehavArosVVal,nVariables,CharContainingNumberFromVector,VariableType,sortType, MaxValue)
+  
+  Model<-"STRSingle"
+  Data<- "AroSortedByValence"
+  RSMIndividual(STR_corr_prep_all,Behav_SingleAroSortedbyValence_corr_prep_all,Model,Data)
+  
+  
+}
+# save.image("RSA_SCR_Sound_VB22_Def.RData")
+
+```
+
+```{r}
+STRSingle_AroSortedByValence_IndividualPlot
+```
+
+### Test whether the invAK model is contributing beyond Valence
+```{r, readRDS myData11,include=FALSE }
+if (loadData==0){
+  # Individual Regression
+  OriginalData<- STR_corr_prep_all
+  ModelData1<-Behav_Single_STR_AK_corr_prep_all
+  ModelData2<- Behav_SingleAroSortedbyValence_corr_prep_all
+  VariableOriginal<-"STR"
+  VariableModel1<- "Valence_AK"
+  VariableModel2<- "Arousal_NN"
+  
+  RSMIndividualRegression(OriginalData,ModelData1,ModelData2,VariableOriginal,VariableModel1,VariableModel2) 
+  
+  #Amplitude
+  SingleSimComparisonAro<-inner_join(ValRatingsAK_STRSingle_tableCorrelation,
+                                     STRSingle_AroSortedByValence_tableCorrelation,
+                                     by = "VP", suffix = c("AK","Aro"))
+  
+  cor.testSingSimComAro<-cor.test(SingleSimComparisonAro$CorrelationAK,SingleSimComparisonAro$CorrelationAro)
+  
+  p<- ggplot(SingleSimComparisonAro, aes(x=CorrelationAK, y=CorrelationAro)) +
+    geom_point(shape=21, color = "black",fill="gray75", size=5)+
+    theme(legend.position="none")+
+    stat_smooth(method = "lm",
+                formula = y ~ x,
+                geom = "smooth", color = "red")+
+    theme_classic()+
+    stat_cor(method = "pearson")+
+    ggtitle("SCR Single")
+  
+  SCRSingleCorrModCompVal<- ggMarginal(p ,type="histogram", fill = "slateblue", xparams = list(  bins=100))
+}
+# save.image("RSA_SCR_Sound_VB22_Def.RData")
+
+```
+
+```{r}
+SCRSingleCorrModCompVal
+
+ggarrange(STR_Valence_AK_Arousal_NN_IndividualPlotRegression[[1]],
+          STR_Valence_AK_Arousal_NN_IndividualPlotRegression[[2]],
+          labels = c("", "" ),   vjust=-7,
+          ncol = 2, nrow =1, widths = c(5,5))
+```
+
+### Model Category based on Arousal (Arousing, non-arousing images)
+```{r, readRDS myData12,include=FALSE }
+if (loadData==0){
+  #----------------------------- MODEL Category 2 (arousing non-arousing) --------------------------------------
+  SoundSTRValsVCat$Category2<-ifelse(SoundSTRValsVCat$Behavioral=="Ne","No","Ye")
+  SoundEdaArosVCat2<-SoundSTRValsVCat  %>%
+    dplyr::select(Vp, sort,Category2)
+  SoundEdaArosVCat2<-SoundEdaArosVCat2%>%
+    rename(Behavioral= Category2)
+  # OriginalData<-SoundEdaArosV
+  MaxValue<- 1
+  nVariables<-18 # this variable defines the number of cells e.g., Soundtures presented
+  CharContainingNumberFromVector<-3 #Character containing number from variables coding vector.
+  #e.g., EDA1, EDA2, EDA3... the character is 4: 1, 2, 3...
+  ### Select the variables needed for the loop: VP, Variable sorting, Vector values
+  VariableType<-"Behav_SingleCategory2SortedbyValence"
+  sortType<- "CategorySortedbyValence"
+  
+  RSMSingleValueFactor(SoundEdaArosVCat2,nVariables,CharContainingNumberFromVector,VariableType,sortType, MaxValue)
+  
+  Model<-"STR"
+  Data<- "Category2SortedbyValence"
+  RSMIndividual(STR_corr_prep_all,Behav_SingleCategory2SortedbyValence_corr_prep_all,Model,Data)
+  
+}
+# save.image("RSA_SCR_Sound_VB22_Def.RData")
+
+```
+
+
+```{r}
+STR_Category2SortedbyValence_IndividualPlot
+```
+### Test whether the invAK model is contributing beyond Category 2
+```{r, readRDS myData13,include=FALSE }
+if (loadData==0){
+  # Individual Regression
+  OriginalData<- STR_corr_prep_all
+  ModelData1<-Behav_Single_STR_AK_corr_prep_all
+  ModelData2<- Behav_SingleCategory2SortedbyValence_corr_prep_all
+  VariableOriginal<-"STR"
+  VariableModel1<- "Valence_AK"
+  VariableModel2<- "Category2_Factor"
+  
+  RSMIndividualRegression(OriginalData,ModelData1,ModelData2,VariableOriginal,VariableModel1,VariableModel2) 
+  
+  #Amplitude
+  SingleSimComparisonCat2<-inner_join(ValRatingsAK_STRSingle_tableCorrelation,
+                                      STR_Category2SortedbyValence_tableCorrelation,
+                                      by = "VP", suffix = c("AK","Cat2"))
+  
+  cor.testSingSimComCat2<-cor.test(SingleSimComparisonCat2$CorrelationAK,SingleSimComparisonCat2$CorrelationCat2)
+  
+  p<- ggplot(SingleSimComparisonCat2, aes(x=CorrelationAK, y=CorrelationCat2)) +
+    geom_point(shape=21, color = "black",fill="gray75", size=5)+
+    theme(legend.position="none")+
+    stat_smooth(method = "lm",
+                formula = y ~ x,
+                geom = "smooth", color = "red")+
+    theme_classic()+
+    stat_cor(method = "pearson")+
+    ggtitle("SCR Single")
+  
+  SCRSingleCorrModCompCat2<- ggMarginal(p ,type="histogram", fill = "slateblue", xparams = list(  bins=100))
+}
+
+```
+
+```{r}
+SCRSingleCorrModCompCat2
+
+ggarrange(STR_Valence_AK_Category2_Factor_IndividualPlotRegression[[1]],
+          STR_Valence_AK_Category2_Factor_IndividualPlotRegression[[2]],
+          labels = c("", "" ),   vjust=-7,
+          ncol = 2, nrow =1, widths = c(5,5))
+save.image("RSA_STR_Sound_VB22_Def.RData")
+
+```

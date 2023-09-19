@@ -29,3 +29,4 @@ plot(dendro)
 par(mar = rep(0,4))
 # circlize_dendrogram(dend, dend_track_height = 0.8) 
 circlize_dendrogram(dendro, labels_track_height = NA, dend_track_height = .4) 
+
