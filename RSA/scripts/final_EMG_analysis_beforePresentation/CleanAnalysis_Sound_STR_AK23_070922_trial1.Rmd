@@ -11,7 +11,7 @@ editor_options:
 #Adapt path accordingly
 #load funcitons
 rm(list = ls())
-source ('./scripts/final_EMG_analysis_beforePresentation/RSAFunctions_only150923.R') 
+source ('./scripts/final_EMG_analysis_beforePresentation/RSAFunctions_only150923_nov.R') 
 #Variable to load data and avoid redoing all analysis. 
 loadData<-1
 if (loadData==1){
@@ -253,7 +253,7 @@ Behav_Single_STR_AK_Valence_RSM
 Behav_Single_STR_invAK_Valence_RSM
 ```
 
-### Model tested againt each Model 
+### Model tested against each Model 
 ```{r, readRDS myData41,include=FALSE }
 #if (loadData==0) {
   Model <- "ValRatingsNN"
@@ -280,6 +280,13 @@ Behav_Single_STR_invAK_Valence_RSM
                 Behav_Single_STR_invAK_corr_prep_all,
                 Model,
                 Data)
+  
+  t.test(ValRatingsNN_STRSingle_tableCorrelation$Correlation, mu = 0)
+t.test(ValRatingsAK_STRSingle_tableCorrelation$Correlation, mu = 0)
+#---------- BAYES t-test: 
+ extractBF(ttestBF( ValRatingsNN_STRSingle_tableCorrelation$Correlation), onlybf = TRUE)
+   extractBF(ttestBF( ValRatingsAK_STRSingle_tableCorrelation$Correlation), onlybf = TRUE)
+
   
   
   #
@@ -343,6 +350,159 @@ ggarrange( STR_ValRatingsNN_PermOutput[["Output"]][["PermutationPlot"]],
            ncol = 1, nrow =3, widths = c(10,10))
 ```
 
+```{r newplot1}
+
+#Combine two histograms in one
+p1<-matrix(unlist(STR_ValRatingsAK_PermOutput[["PermutationTest"]][["value"]]), ncol=1)
+p2<-matrix(unlist(STR_ValRatingsNN_PermOutput[["PermutationTest"]][["value"]]), ncol=1)
+p1<-tibble(p1)
+
+p2<-tibble(p2)
+p1$model<-"AK"
+p2$model<-"NN"
+names(p1)<-c("permutation","model")
+  names(p2)<- c("permutation","model")
+
+ptotal<-rbind(p1,p2)
+
+similarity1<-matrix(unlist(STR_ValRatingsAK_PermOutput[["Similarity"]]),ncol=1)
+similarity2<-matrix(unlist(STR_ValRatingsNN_PermOutput[["Similarity"]]),ncol=1)
+similarity1$model<-"AK"
+similarity2$model<-"NN"
+names(similarity1)<-c("Similarity","model")
+  names(similarity2)<- c("Similarity","model")
+similaritytotal<-as.data.frame(rbind(similarity1,similarity2))
+similaritytotal$Similarity<-as.numeric(similaritytotal$Similarity)
+#similaritytotal$model<-as.factor(similaritytotal$model)
+
+
+th1<-matrix(unlist(STR_ValRatingsAK_PermOutput[["PermutationTest"]][["value"]][9500]), ncol=1)
+th2<-matrix(unlist(STR_ValRatingsNN_PermOutput[["PermutationTest"]][["value"]][9500]), ncol=1)
+th1<-tibble(th1)
+
+th2<-tibble(th2)
+th1$model<-"AK"
+th2$model<-"NN"
+names(th1)<-c("threshold","model")
+  names(th2)<- c("threshold","model")
+
+thtotal<-rbind(th1,th2)
+
+
+test<-
+  ggplot(ptotal, aes(permutation, fill = model)) + 
+  geom_density(alpha = 0.55, 
+                                                                size = 1)+      scale_fill_manual(values=c('darkgoldenrod1','darkmagenta'))+
+      scale_y_continuous(expand = expansion(mult = c(0, .1)))
+
+den1 = test+geom_vline(data=similaritytotal, aes(xintercept=Similarity),
+            color= c('darkgoldenrod1','darkmagenta'), linetype="solid",size = 2)+
+    geom_vline(data=thtotal, aes(xintercept=threshold),
+            color= c('darkgoldenrod1','darkmagenta'), linetype="dashed",size = 2)+
+  theme_classic()+
+      theme(axis.text.x= element_text(size=15),
+             axis.text.y= element_text(size=15),
+             axis.title.x = element_blank(),
+             axis.title.y = element_text( size=15,face="bold"), 
+            legend.position = "none",
+            text=element_text(family="Times New Roman"))+
+  labs(y= "Density")
+den1
+
+
+#RSMs combined
+SCR<-STR_corr_prep_all%>% select(var1, var2, mean_all)
+SCR$Similarity<-SCR$mean_all
+invAK<- Behav_Single_STR_AK_corr_prep_all%>% select(var1, var2, mean_all)
+invAK$Similarity<-invAK$mean_all
+NN<- Behav_Single_STR_corr_prep_all%>% select(var1, var2, mean_all)
+NN$Similarity<-NN$mean_all
+SCRDown<-SCR%>% filter(var1<var2)
+invAKUp<- invAK%>% filter(var1>var2)
+NNUp<- NN%>%filter(var1>var2)
+
+invAKSCR<- rbind(SCRDown,invAKUp)
+NNSCR<- rbind(SCRDown, NNUp)
+library(ggnewscale)
+
+dataOriginal<-invAKSCR#data coming up from RSM functions it should contain the variable mean_all
+mypalette<- numeric()#colors
+minimum<-numeric()#scale
+maximum<-numeric()# scale
+Category<- "trials" # VP or trials
+Participant<- "Similarity" # factor() #if individual participants are to be selected,
+sortType<- "Valence" #variable to sort on
+mat_plot_AK = PlotMatrixCombined(dataOriginal, minimum,maximum,Category,sortType,Participant, mypalette) 
+
+mat_plot_AK2 = mat_plot_AK+ theme(legend.position = "none",
+                    axis.title.x = element_blank(),
+                    axis.text.x = element_blank(),
+                    axis.text.y = element_blank(),
+                    title = element_blank())
+
+
+dataOriginal<-NNSCR#data coming up from RSM functions it should contain the variable mean_all
+mypalette<- numeric()#colors
+minimum<-numeric()#scale
+maximum<-numeric()# scale
+Category<- "trials" # VP or trials
+Participant<- "Similarity" # factor() #if individual participants are to be selected,
+sortType<- "Valence" #variable to sort on
+mat_plot_NN = PlotMatrixCombined(dataOriginal, minimum,maximum,Category,sortType,Participant, mypalette)
+mat_plot_NN2 = mat_plot_NN + theme(legend.position = "none",
+                    axis.title.x = element_blank(),
+                    axis.text.x = element_blank(),
+                    axis.text.y = element_blank(),
+                    title = element_blank())
+
+#Plot individual Data
+library(ggridges) # ridgeline plot
+library(tidyr) # long format
+library(colorBlindness)
+library(RColorBrewer)
+test = cbind(ValRatingsAK_STRSingle_tableCorrelation,
+             ValRatingsNN_STRSingle_tableCorrelation)
+test2 = test[c(1,2,4)]
+names(test2)<-c("VP", "AK", "NN")
+long_data2 <- gather(test2, key = "model", value = "Similarity", 2:3)
+
+ggplot(long_data2, aes(x=Similarity, y=model, fill = model))  + geom_density_ridges()+
+    scale_fill_brewer(palette = 4) +
+  theme_ridges() + theme(legend.position = "none")+
+  labs(x = "rho value", y = "Regressor")+
+  geom_vline(xintercept = 0, color = "red", linetype = "dashed")
+# colorblind friendly
+cols = c( 'darkgoldenrod1','darkmagenta')
+
+# "#004949"  ,   "#009292" ,    "#FF6DB6"    , "#FFB6DB" ,    "#490092"  ,   "#006DDB" ,
+#     "#B66DFF"  ,   "#6DB6FF"   ,  "#B6DBFF")
+den2 = ggplot(long_data2, aes(x=Similarity, y=model, fill = model, alpha = .2))  + 
+  theme_classic() + theme(legend.position = "none")+
+  labs(x = "Similarity", y = "")+
+  scale_y_discrete(expand = expansion(add = c(0,1)))+
+  geom_density_ridges(
+                      quantile_lines=TRUE,
+                      bandwidth = 0.1,
+                      quantile_fun=function(x,...)mean(x),
+                      size = 1
+                      ) +
+  scale_fill_manual(values = cols, )+
+  geom_vline(xintercept = 0, color = "black", linetype = "dashed", size = 1)+
+  scale_x_continuous(breaks= c(-.6,-.2,-.4,0, .2,.4,.6,.8), limits= c(-.6,.8))+
+
+  theme(axis.text.x= element_text(size=15),
+        axis.text.y= element_blank(), #element_text(size=15),
+        axis.title.x =  element_text( size=15,face="bold"),
+        axis.title.y = element_text( size=15,face="bold"),
+        text=element_text(family="Times New Roman"))+
+  labs(x = "Similarity Index", y = "Models")
+den2
+ 
+library(patchwork)
+mat_plot_AK2+ den1+ mat_plot_NN2 + den2+ plot_annotation(tag_levels = list(c("A", "C", "B", "D"))) & 
+  theme(plot.tag = element_text(size = 25, face = "bold")) 
+```
+
 
 ### Test the unique contribution of each model (i.e., NN and AK)
 #### **VECTOR**
@@ -362,16 +522,36 @@ ggarrange( STR_ValRatingsNN_PermOutput[["Output"]][["PermutationPlot"]],
   PlotRSMReg<-1
   Category = "Trials"
   
-  PermutationTestRegModels(OriginalData,ModelData1,
-                       ModelData2,VariableOriginal,VariableModel1,VariableModel2,Category,
+  PermutationTestRegModels(OriginalData,
+                           ModelData1,
+                           ModelData2,
+                           VariableOriginal,VariableModel1,VariableModel2,Category,
                            nPermutations,seedPer,PlotRSMReg)
   
   
   #Individual Data
   RSMIndividualRegression(OriginalData,ModelData1,ModelData2,VariableOriginal,VariableModel1,VariableModel2) 
 #}
+  
+
+  t.test(STR_Single_ValRatings_AK_ValRatings_NN_tableRegression$Similarity_STR_Single_ValRatings_AK, mu = 0)
+t.test(STR_Single_ValRatings_AK_ValRatings_NN_tableRegression$Similarity_STR_Single_ValRatings_NN, mu = 0)
+#---------- BAYES t-test: 
+ extractBF(ttestBF( STR_Single_ValRatings_AK_ValRatings_NN_tableRegression$Similarity_STR_Single_ValRatings_AK), onlybf = TRUE)
+   extractBF(ttestBF( STR_Single_ValRatings_AK_ValRatings_NN_tableRegression$Similarity_STR_Single_ValRatings_NN), onlybf = TRUE)
+   
+# get BF10
+# BF10 AK
+STR_Single_ValRatings_AK_ValRatings_NN_PermOutputRegr[["Model1"]][["bf"]]
+2.05156e+61/1.301856e+26
+# BF10 NN
+STR_Single_ValRatings_AK_ValRatings_NN_PermOutputRegr[["Model2"]][["bf"]]
+0.003257411/0.7393813
 ```
 
+
+
+## all plots for regression
 ```{r}
 ggarrange(STR_Single_ValRatings_AK_ValRatings_NN_IndividualPlotRegression[[1]],
           STR_Single_ValRatings_AK_ValRatings_NN_IndividualPlotRegression[[2]],
@@ -386,8 +566,149 @@ ggarrange(STR_Single_ValRatings_AK_ValRatings_NN_PermOutputRegr[["Ouput"]][["RSM
 
 ggarrange( STR_Single_ValRatings_AK_ValRatings_NN_PermOutputRegr[["Ouput"]][["PermutationPlotM1"]],
            STR_Single_ValRatings_AK_ValRatings_NN_PermOutputRegr[["Ouput"]][["PermutationPlotM2"]],
-           labels = c("iAK", "NN"),   vjust=(12),
+           labels = c("AK", "NN"),   vjust=(12),
            ncol = 1, nrow =2, widths = c(5,5))
+
+
+### new plot for regression
+# 3.11.23 
+
+#Combine two histograms in one
+p1<-matrix(unlist(STR_Single_ValRatings_AK_ValRatings_NN_PermOutputRegr[["Model1"]][["PermutationTest"]][["value"]]), ncol=1)
+p2<-matrix(unlist(STR_Single_ValRatings_AK_ValRatings_NN_PermOutputRegr[["Model2"]][["PermutationTest"]][["value"]]), ncol=1)
+p1<-tibble(p1)
+
+p2<-tibble(p2)
+p1$model<-"AK"
+p2$model<-"NN"
+names(p1)<-c("permutation","model")
+  names(p2)<- c("permutation","model")
+
+ptotal<-rbind(p1,p2)
+
+similarity1<-matrix(unlist(STR_Single_ValRatings_AK_ValRatings_NN_PermOutputRegr[["Model1"]][["Similarity"]]),ncol=1)
+similarity2<-matrix(unlist(STR_Single_ValRatings_AK_ValRatings_NN_PermOutputRegr[["Model2"]][["Similarity"]]),ncol=1)
+similarity1$model<-"AK"
+similarity2$model<-"NN"
+names(similarity1)<-c("Similarity","model")
+  names(similarity2)<- c("Similarity","model")
+similaritytotal<-as.data.frame(rbind(similarity1,similarity2))
+similaritytotal$Similarity<-as.numeric(similaritytotal$Similarity)
+#similaritytotal$model<-as.factor(similaritytotal$model)
+
+
+th1<-matrix(unlist(STR_Single_ValRatings_AK_ValRatings_NN_PermOutputRegr[["Model1"]][["PermutationTest"]][["value"]][9500]), ncol=1)
+th2<-matrix(unlist(STR_Single_ValRatings_AK_ValRatings_NN_PermOutputRegr[["Model2"]][["PermutationTest"]][["value"]][9500]), ncol=1)
+th1<-tibble(th1)
+
+th2<-tibble(th2)
+th1$model<-"AK"
+th2$model<-"NN"
+names(th1)<-c("threshold","model")
+  names(th2)<- c("threshold","model")
+
+thtotal<-rbind(th1,th2)
+
+
+test<-
+  ggplot(ptotal, aes(permutation, fill = model)) + geom_density(alpha = 0.55, 
+                                                                size = 1)+     scale_fill_manual(values=c('darkgoldenrod1','darkmagenta'))+
+      scale_y_continuous(expand = expansion(mult = c(0, .1)))
+
+den3 = test+geom_vline(data=similaritytotal, aes(xintercept=Similarity),
+            color= c('darkgoldenrod1','darkmagenta'), linetype="solid",size = 2)+
+    geom_vline(data=thtotal, aes(xintercept=threshold),
+            color= c('darkgoldenrod1','darkmagenta'), linetype="dashed",size = 2)+
+  theme_classic()+
+      theme(axis.text.x= element_text(size=15),
+             axis.text.y= element_text(size=15),
+             axis.title.x = element_blank(),
+             axis.title.y = element_text( size=15,face="bold"),
+            legend.position = "none",
+            text=element_text(family="Times New Roman"))+
+  labs(y = "Density")
+
+
+#RSMs combined
+SCR<-STR_corr_prep_all%>% select(var1, var2, mean_all)
+SCR$Similarity<-SCR$mean_all
+invAK<- STR_Single_ValRatings_AK_ValRatings_NN_PermOutputRegr[["Ouput"]][["RSMPlotRegressionM1"]][["data"]]%>% select(var1, var2, mean_all)
+invAK$Similarity<-invAK$mean_all
+NN<- STR_Single_ValRatings_AK_ValRatings_NN_PermOutputRegr[["Ouput"]][["RSMPlotRegressionM2"]][["data"]]%>% select(var1, var2, mean_all)
+NN$Similarity<-NN$mean_all
+SCRDown<-SCR%>% filter(var1<var2)
+invAKUp<- invAK%>% filter(var1>var2)
+NNUp<- NN%>%filter(var1>var2)
+
+invAKSCR<- rbind(SCRDown,invAKUp)
+NNSCR<- rbind(SCRDown, NNUp)
+library(ggnewscale)
+
+dataOriginal<-invAKSCR#data coming up from RSM functions it should contain the variable mean_all
+mypalette<- numeric()#colors
+minimum<-numeric()#scale
+maximum<-numeric()# scale
+Category<- "trials" # VP or trials
+Participant<- "Similarity" # factor() #if individual participants are to be selected,
+sortType<- "Valence" #variable to sort on
+mat_3 =PlotMatrixCombined(dataOriginal, minimum,maximum,Category,sortType,Participant, mypalette)
+mat_plot_AK3 = mat_3 + theme(legend.position = "none",
+                    axis.title.x = element_blank(),
+                    axis.text.x = element_blank(),
+                    axis.text.y = element_blank(),
+                    title = element_blank())
+
+
+dataOriginal<-NNSCR#data coming up from RSM functions it should contain the variable mean_all
+mypalette<- numeric()#colors
+minimum<-numeric()#scale
+maximum<-numeric()# scale
+Category<- "trials" # VP or trials
+Participant<- "Similarity" # factor() #if individual participants are to be selected,
+sortType<- "Valence" #variable to sort on
+mat4 = PlotMatrixCombined(dataOriginal, minimum,maximum,Category,sortType,Participant, mypalette)
+mat_plot_NN3 = mat4 + theme(legend.position = "none",
+                    axis.title.x = element_blank(),
+                    axis.text.x = element_blank(),
+                    axis.text.y = element_blank(),
+                    title = element_blank())
+
+
+#Plot individual Data
+library(ggridges) # ridgeline plot
+library(tidyr) # long format
+library(colorBlindness)
+library(RColorBrewer)
+
+test2 =  STR_Single_ValRatings_AK_ValRatings_NN_tableRegression #SCR_Single_AroRatings_invAK_AroRatings_NN_tableRegression
+names(test2)<-c("VP", "AK", "NN")
+long_data2 <- gather(test2, key = "model", value = "Similarity", 2:3)
+# colorblind friendly
+cols = c( 'darkgoldenrod1','darkmagenta')
+
+# "#004949"  ,   "#009292" ,    "#FF6DB6"    , "#FFB6DB" ,    "#490092"  ,   "#006DDB" ,
+#     "#B66DFF"  ,   "#6DB6FF"   ,  "#B6DBFF")
+den4 = ggplot(long_data2, aes(x=Similarity, y=model, fill = model, alpha = .2))  + 
+  theme_classic() + theme(legend.position = "none")+
+  labs(x = "Similarity", y = "")+
+  scale_y_discrete(expand = expansion(add = c(0,1)))+
+  geom_density_ridges(quantile_lines=TRUE,bandwidth = 0.1,
+                      quantile_fun=function(x,...)mean(x), size = 1) +
+  scale_fill_manual(values = cols, )+
+  geom_vline(xintercept = 0, color = "black", linetype = "dashed", size = 1)+
+  scale_x_continuous(breaks= c(-.6,-.4,-.2,0,.2,.4,.6,.8), limits= c(-.65,.85))+
+  theme(axis.text.x= element_text(size=15),
+        axis.text.y= element_blank(), #element_text(size=15),
+        axis.title.x =  element_text( size=15,face="bold"),
+        axis.title.y = element_text( size=15,face="bold"),
+        text=element_text(family="Times New Roman"))+
+  labs(x = "Similarity Index", y = "Models")
+den4
+ 
+library(patchwork)
+mat_plot_AK3+ den3+ mat_plot_NN3 + den4+ plot_annotation(tag_levels = list(c("A", "C", "B", "D"))) & 
+  theme(plot.tag = element_text(size = 25, face = "bold")) 
+
 ```
 
 
@@ -610,7 +931,7 @@ STRSingle_Categorysortedbyvalence_IndividualPlot
   
   #Amplitude
   SingleSimComparisonCat<-inner_join(ValRatingsAK_STRSingle_tableCorrelation,
-                                     STRSingle_Categorysortedbyvalence_tableCorrelation,,
+                                     STRSingle_Categorysortedbyvalence_tableCorrelation,
                                      by = "VP", suffix = c("AK","Cat"))
   
   cor.testSingSimComCat<-cor.test(SingleSimComparisonCat$CorrelationAK,SingleSimComparisonCat$CorrelationCat)
@@ -713,7 +1034,7 @@ STRSingle_AroSortedByValence_IndividualPlot
   
   SCRSingleCorrModCompVal<- ggMarginal(p ,type="histogram", fill = "slateblue", xparams = list(  bins=100))
 #}
-# save.image("RSA_SCR_Sound_VB22_Def.RData")
+
 
 ```
 
@@ -804,7 +1125,7 @@ ggarrange(STR_Valence_AK_Category2_Factor_IndividualPlotRegression[[1]],
           STR_Valence_AK_Category2_Factor_IndividualPlotRegression[[2]],
           labels = c("", "" ),   vjust=-7,
           ncol = 2, nrow =1, widths = c(5,5))
-save.image("RSA_STR_Sound_VB22_Def.RData")
+#save.image("RSA_STR_Sound_VB22_Def.RData")
 
 ```
 
@@ -863,6 +1184,28 @@ ggplot(long_data2, aes(x= `rho value`, y=regressor, fill = regressor))  + geom_d
 
 #displayAvailablePalette(color="white")
 
+#FINAL GRAPH
+
+cols = c(  "#6DB6FF" , "#004949"  ,    "#FFB6DB","#B66DFF"   )
+
+ggplot(long_data2, aes(x= `rho value`, y=regressor, fill = regressor, alpha = .2))  + 
+  theme_classic() + theme(legend.position = "none")+
+  labs(x = "Similarity", y = "")+
+  scale_y_discrete(expand = expansion(add = c(0,1)))+
+  geom_density_ridges(quantile_lines=TRUE,bandwidth = 0.1,
+                      quantile_fun=function(x,...)mean(x), size = 1) +
+  scale_fill_manual(values = cols, )+
+  geom_vline(xintercept = 0, color = "black", linetype = "dashed", size = 1)+
+  scale_x_continuous(breaks= c(-.5,-.25,0, .25,.5,.75), limits= c(-.5,.8))+
+  theme(axis.text.x= element_text(size=20),
+        axis.text.y= element_blank(), #element_text(size=15),
+        axis.title.x =  element_text( size=25,face="bold"),
+        axis.title.y = element_text( size=15,face="bold"),
+        title = element_text(face = "bold", size = 20 ),
+        text=element_text(family="Times New Roman"))+
+  labs(tag = "A", title = "PPV from discovery sample")
+  
+
 ```
 
 ```{r dendogram}
@@ -895,4 +1238,3 @@ par(mar = rep(0,4))
 # circlize_dendrogram(dend, dend_track_height = 0.8) 
 circlize_dendrogram(dendro, labels_track_height = NA, dend_track_height = .4) 
 ```
-

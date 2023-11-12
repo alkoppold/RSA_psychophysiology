@@ -1,0 +1,1366 @@
+---
+title: "RSA SCR PPV"
+author: "Carlos Ventura-Bort"
+date: "2023-09-04"
+output: html_document
+---
+
+``` {r,include=FALSE}
+#Adapt path accordingly
+#load funcitons
+source ('C:/Users/cvent/Desktop/RESEARCH/RSA_LondorfLab/RSAFunctions_only150923.R') 
+#Variable to load data and avoid redoing all analysis. 
+loadData<-1
+if (loadData==1){
+  load("RSA_SCR_Pic_VB22_Def.RData")
+loadData<-1
+}
+#Set the wd
+setwd("C:/Users/cvent/Desktop/RESEARCH/RSA_LondorfLab")
+```
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+``` {r,include=FALSE}
+#######
+##Libraries
+library(base)
+library(psycho)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(fs)
+library (lme4)
+library(lmerTest)
+library(sjPlot)
+library(rstatix)
+library(Hmisc)
+# install.packages("extrafont")
+library(extrafont)
+library (ggbeeswarm)
+library(BayesFactor)
+library(bayestestR)
+library(glue)
+library(viridis)
+library(ggpubr)
+library(ggExtra)
+#################################################
+### Load Fonts for figures
+#################################################
+loadfonts(device="win")       #Register fonts for Windows bitmap output
+windowsFonts(Times=windowsFont("Times"))
+```
+
+# Outline  
+## *RSA from Ventura-Bort et al., 2022:*
+## **Passive Picture Viewing Task**
+### Skin Conductance Response: Vector or Amplitude?  
+### Model Testing of Arousal: Nearest Neighborhood, Anna Karenina (AK) and inverted AK  
+### Model Testing Beyond Arousal
+
+##  **Vector or Amplitude?** 
+### Are vector- and amplitude-based RSMs similar to each other?
+
+```{r, readRDS myData2,include=FALSE }
+#load the data
+if (loadData==0){
+  SCR_RSM<-readRDS("SCR_RSM.rds") 
+#------------------------
+#Select Task Pasive Picture viewing
+PicEdaAro<-SCR_RSM  %>%
+  filter(Task_def==1)
+PicEdaAro$Category<-ifelse(PicEdaAro$trial_type==2,"Pl",
+                           ifelse(PicEdaAro$trial_type==4,"Un","Ne"))
+PicEdaAroMod<-PicEdaAro%>%
+  select(Vp_ratings,Category, Aro, EDA_mean_log) 
+
+#Matrix should contain VP, Behavioral Variable (e.g., Aro), 
+# variable coding the sorting (sortAro), Variables for the vector (variables containing EDA)
+PicEdaAro<-PicEdaAro%>%
+  select(Vp_ratings,sortAro, contains("EDA"),- contains("EDA_mean")) 
+#rename to favor the function. 
+PicEdaAro<-PicEdaAro%>%
+  rename(sort= sortAro)
+
+
+#----------------------------------------------------------------
+#Create Matrix based on single datapoints for EDA Amplitudes
+PicEdaArosV<-SCR_RSM  %>%
+  filter(Task_def==1)%>%
+  dplyr::select(Vp_ratings, sortAro,EDA_mean_log)
+PicEdaArosV<-PicEdaArosV%>%
+  dplyr:: rename(sort= sortAro)
+
+#----------------- DEFINE PARAMETERS FOR RUNING RSMVector for EDA and AROUSAL
+# OriginalData<-PicEdaAro
+nVariables<-36 # this variable defines the number of cells e.g., pictures presented
+CharContainingNumberFromVector<-4 #Character containing number from variables coding vector.
+#e.g., EDA1, EDA2, EDA3... the character is 4: 1, 2, 3...
+### Select the variables needed for the loop: VP, Variable sorting, Vector values
+VariableType<-"SCR_Vector"
+sortType<- "Arousal"
+OriginalData<-PicEdaAro
+
+RSMVector(PicEdaAro,nVariables,CharContainingNumberFromVector,VariableType,sortType)
+
+#----------------- DEFINE PARAMETERS FOR RUNING RSMSingle for Amplitudes for EDA and AROUSAL
+# OriginalData<-PicEdaArosV
+MaxValue<- max(PicEdaArosV$EDA_mean_log, na.rm=T)
+nVariables<-36 # this variable defines the number of cells e.g., pictures presented
+CharContainingNumberFromVector<-4 #Character containing number from variables coding vector.
+#e.g., EDA1, EDA2, EDA3... the character is 4: 1, 2, 3...
+### Select the variables needed for the loop: VP, Variable sorting, Vector values
+VariableType<-"SCR_Single"
+sortType<- "Arousal"
+
+RSMSingleValue(PicEdaArosV,nVariables,CharContainingNumberFromVector,VariableType,sortType, MaxValue)
+
+#Compare Vector and Amplitude Variable at a single level
+Model<-"SCRVector"
+Data<- "SCRSingle"
+RSMIndividual(SCR_Vector_corr_prep_all,SCR_Single_corr_prep_all,Model,Data)
+
+#---------------------
+seedPer<-55
+nPermutations<-10000
+VariableOriginal<-"SCR_Single"
+VariableModel<- "SCR_Vector"
+# OriginalData<-SCR_Single_corr_prep_all
+# ModelData<-Behav_Single_corr_prep_all
+PermutationTest(SCR_Single_corr_prep_all,SCR_Vector_corr_prep_all,VariableOriginal,VariableModel,nPermutations,seedPer)
+}
+
+#----- Combined vector and single value
+SCR_Single_corr_prep_allF<-SCR_Single_corr_prep_all%>%
+select(var1, var2, mean_all)
+SCR_Single_corr_prep_allF$Similarity<-SCR_Single_corr_prep_allF$mean_all
+
+SCR_Vector_corr_prep_allF<- SCR_Vector_corr_prep_all%>% select(var1, var2, mean_all)
+SCR_Vector_corr_prep_allF$Similarity<-SCR_Vector_corr_prep_allF$mean_all
+
+
+SCR_Vector_corr_prep_allFDown<-SCR_Vector_corr_prep_allF%>% filter(var1<var2)
+
+SCR_Single_corr_prep_allFUp<- SCR_Single_corr_prep_allF%>% filter(var1>var2)
+SingleVectorSCR<- rbind(SCR_Single_corr_prep_allFUp,SCR_Vector_corr_prep_allFDown)
+library(ggnewscale)
+
+dataOriginal<-SingleVectorSCR#data coming up from RSM functions it should contain the variable mean_all
+mypalette<- numeric()#colors
+minimum<-numeric()#scale
+maximum<-numeric()# scale
+Category<- "trials" # VP or trials
+Participant<- "Similarity" # factor() #if individual participants are to be selected,
+sortType<- "Arousal" #variable to sort on
+PlotMatrixCombined(dataOriginal, minimum,maximum,Category,sortType,Participant, mypalette)
+
+
+```
+
+```{r}
+
+     # ggarrange(SCR_Vector_Arousal_RSM,SCR_Single_Arousal_RSM ,
+     #        # SCRVector_SCRSingle_IndividualPlot, SCR_Single_SCR_Vector_PermOutput[["Output"]][["PermutationPlot"]],
+     #        labels = c("A", "B" ),
+     #        ncol = 2, nrow =1, widths = c(10,10))
+
+SCR_Single_Arousal_RSM
+SCR_Vector_Arousal_RSM
+SCRVector_SCRSingle_IndividualPlot
+SCR_Single_SCR_Vector_PermOutput[["Output"]][["PermutationPlot"]]
+SCR_Single_SCR_Vector_PermOutput[["Output"]][["Summary"]]
+         
+```
+
+## *Models of Arousal*  
+
+### the RSMs of SCR will be tested against two models: 
+the Nearest Neighborhood model which assumes that the closer trials are in arousal, the more similar they are  
+from the Anna Karenina (AK) model which assumes that trials with high arousal will be more similar to each other than those rates as low arousal,
+we will derive the inverted model (Inverted AK Model), which assumes that lower values of arousal are similar to each other, but higher values are more dissimilar
+```{r, readRDS myData3,include=FALSE }
+#Create Matrix based on single BEHAVIORAL
+if (loadData==0){
+PicBehaArosV<-SCR_RSM  %>%
+  filter(Task_def==1)%>%
+  dplyr::select(Vp_ratings, sortAro,Aro)
+PicBehaArosV<-PicBehaArosV%>%
+  rename(Behavioral= Aro)%>%
+  rename(sort= sortAro)
+# OriginalData<-PicBehaArosV
+MaxValue<- max(PicBehaArosV$Behavioral, na.rm=T)
+
+nVariables<-36 # this variable defines the number of cells e.g., pictures presented
+CharContainingNumberFromVector<-3 #Character containing number from variables coding vector.
+#e.g., EDA1, EDA2, EDA3... the character is 4: 1, 2, 3...
+### Select the variables needed for the loop: VP, Variable sorting, Vector values
+VariableType<-"Behav_Single_NN"
+sortType<- "Arousal"
+
+RSMSingleValue(PicBehaArosV,nVariables,CharContainingNumberFromVector,VariableType,sortType, MaxValue)
+
+VariableType<-"Behav_Single_AK"
+sortType<- "Arousal"
+
+RSMSingleValueAK(PicBehaArosV,nVariables,CharContainingNumberFromVector,VariableType,sortType, MaxValue)
+
+VariableType<-"Behav_Single_invAK"
+sortType<- "Arousal"
+
+RSMSingleValueinvAK(PicBehaArosV,nVariables,CharContainingNumberFromVector,VariableType,sortType, MaxValue)
+
+}
+```
+
+```{r}
+Behav_Single_NN_Arousal_RSM
+Behav_Single_AK_Arousal_RSM
+Behav_Single_invAK_Arousal_RSM
+
+
+```
+
+### Vector-and amplitude-based model tested againt NN Model 
+```{r, readRDS myData41,include=FALSE }
+if (loadData==0){
+
+#------------ VECtOR------------------
+Model<-"AroRatings_NN"
+Data<- "SCR_Vector"
+RSMIndividual(SCR_Vector_corr_prep_all,Behav_Single_NN_corr_prep_all,Model,Data)
+
+#  Permutation test SCR Vector and Arousal Ratings NN
+seedPer<-55
+nPermutations<-10000
+VariableOriginal<-"SCR_Vector"
+VariableModel<- "AroRatings_NN"
+
+PermutationTest(SCR_Vector_corr_prep_all,Behav_Single_NN_corr_prep_all,VariableOriginal,VariableModel,nPermutations,seedPer)
+
+
+#------------ Amplitude------------------
+Model<-"AroRatings_NN"
+Data<- "SCR_Single"
+RSMIndividual(SCR_Single_corr_prep_all,Behav_Single_NN_corr_prep_all,Model,Data)
+
+#  Permutation test SCR Single and Arousal Ratings NN
+seedPer<-55
+nPermutations<-10000
+VariableOriginal<-"SCR_Single"
+VariableModel<- "AroRatings_NN"
+
+PermutationTest(SCR_Single_corr_prep_all,Behav_Single_NN_corr_prep_all,VariableOriginal,VariableModel,nPermutations,seedPer)
+}
+```
+
+
+```{r}
+ggarrange(AroRatings_NN_SCR_Vector_IndividualPlot,AroRatings_NN_SCR_Single_IndividualPlot ,
+            labels = c("Vector", "Single" ),
+          hjust=-5,
+            ncol = 2, nrow =1, widths = c(5,5))
+
+ ggarrange( SCR_Vector_AroRatings_NN_PermOutput[["Output"]][["PermutationPlot"]],
+            SCR_Single_AroRatings_NN_PermOutput[["Output"]][["PermutationPlot"]],
+            labels = c("Vector", "Single" ),
+                  hjust=-2,
+            ncol = 1, nrow =2, widths = c(10,10))
+```
+
+### Vector-and amplitude-based model tested againt invAK Model 
+```{r, readRDS myData44,include=FALSE }
+if (loadData==0){
+
+#------------ VECtOR------------------
+Model<-"AroRatings_invAK"
+Data<- "SCR_Vector"
+RSMIndividual(SCR_Vector_corr_prep_all,Behav_Single_invAK_corr_prep_all,Model,Data)
+
+#  Permutation test SCR Vector and Arousal Ratings NN
+seedPer<-55
+nPermutations<-10000
+VariableOriginal<-"SCR_Vector"
+VariableModel<- "AroRatings_invAK"
+
+PermutationTest(SCR_Vector_corr_prep_all,Behav_Single_invAK_corr_prep_all,VariableOriginal,VariableModel,nPermutations,seedPer)
+
+
+#------------ Amplitude------------------
+Model<-"AroRatings_invAK"
+Data<- "SCR_Single"
+RSMIndividual(SCR_Single_corr_prep_all,Behav_Single_invAK_corr_prep_all,Model,Data)
+
+#  Permutation test SCR Single and Arousal Ratings NN
+seedPer<-55
+nPermutations<-10000
+VariableOriginal<-"SCR_Single"
+VariableModel<- "AroRatings_invAK"
+
+PermutationTest(SCR_Single_corr_prep_all,Behav_Single_invAK_corr_prep_all,VariableOriginal,VariableModel,nPermutations,seedPer)
+
+
+
+t.test(AroRatings_NN_SCR_Single_tableCorrelation$Correlation, mu = 0)
+t.test(AroRatings_invAK_SCR_Single_tableCorrelation$Correlation, mu = 0)
+#---------- BAYES t-test: 
+ extractBF(ttestBF( AroRatings_invAK_SCR_Single_tableCorrelation$Correlation), onlybf = TRUE)
+   extractBF(ttestBF( AroRatings_NN_SCR_Single_tableCorrelation$Correlation), onlybf = TRUE)
+
+
+
+#Combine two histograms in one
+p1<-matrix(unlist(SCR_Single_AroRatings_invAK_PermOutput[["PermutationTest"]][["value"]]), ncol=1)
+p2<-matrix(unlist(SCR_Single_AroRatings_NN_PermOutput[["PermutationTest"]][["value"]]), ncol=1)
+p1<-tibble(p1)
+
+p2<-tibble(p2)
+p1$model<-"inverted AK"
+p2$model<-"NN"
+names(p1)<-c("permutation","model")
+  names(p2)<- c("permutation","model")
+
+ptotal<-rbind(p1,p2)
+
+similarity1<-matrix(unlist(SCR_Single_AroRatings_invAK_PermOutput[["Similarity"]]),ncol=1)
+similarity2<-matrix(unlist(SCR_Single_AroRatings_NN_PermOutput[["Similarity"]]),ncol=1)
+similarity1$model<-"inverted AK"
+similarity2$model<-"NN"
+names(similarity1)<-c("Similarity","model")
+  names(similarity2)<- c("Similarity","model")
+similaritytotal<-as.data.frame(rbind(similarity1,similarity2))
+similaritytotal$Similarity<-as.numeric(similaritytotal$Similarity)
+similaritytotal$model<-as.factor(similaritytotal$model)
+
+
+th1<-matrix(unlist(SCR_Single_AroRatings_invAK_PermOutput[["PermutationTest"]][["value"]][9500]), ncol=1)
+th2<-matrix(unlist(SCR_Single_AroRatings_NN_PermOutput[["PermutationTest"]][["value"]][9500]), ncol=1)
+th1<-tibble(th1)
+
+th2<-tibble(th2)
+th1$model<-"inverted AK"
+th2$model<-"NN"
+names(th1)<-c("threshold","model")
+  names(th2)<- c("threshold","model")
+
+thtotal<-rbind(th1,th2)
+
+
+test<-
+  ggplot(ptotal, aes(permutation, fill = model)) + geom_density(alpha = 0.2)+     scale_fill_manual(values=c('darkgoldenrod1','darkmagenta'))+
+      scale_y_continuous(expand = expansion(mult = c(0, .1)))
+
+test+geom_vline(data=similaritytotal, aes(xintercept=Similarity),
+            color= c('darkgoldenrod1','darkmagenta'), linetype="solid",size = 2)+
+    geom_vline(data=thtotal, aes(xintercept=threshold),
+            color= c('darkgoldenrod1','darkmagenta'), linetype="dashed",size = 2)+
+  theme_classic()+
+      theme(axis.text.x= element_text(size=15),
+             axis.text.y= element_text(size=15),
+             axis.title.x = element_text( size=15,face="bold"),
+             axis.title.y = element_text( size=15,face="bold"))
+
+
+#RSMs combined
+SCR<-SCR_Single_corr_prep_all%>% select(var1, var2, mean_all)
+SCR$Similarity<-SCR$mean_all
+invAK<- Behav_Single_invAK_corr_prep_all%>% select(var1, var2, mean_all)
+invAK$Similarity<-invAK$mean_all
+NN<- Behav_Single_NN_corr_prep_all%>% select(var1, var2, mean_all)
+NN$Similarity<-NN$mean_all
+SCRDown<-SCR%>% filter(var1<var2)
+invAKUp<- invAK%>% filter(var1>var2)
+NNUp<- NN%>%filter(var1>var2)
+
+invAKSCR<- rbind(SCRDown,invAKUp)
+NNSCR<- rbind(SCRDown, NNUp)
+library(ggnewscale)
+
+dataOriginal<-invAKSCR#data coming up from RSM functions it should contain the variable mean_all
+mypalette<- numeric()#colors
+minimum<-numeric()#scale
+maximum<-numeric()# scale
+Category<- "trials" # VP or trials
+Participant<- "Similarity" # factor() #if individual participants are to be selected,
+sortType<- "Arousal" #variable to sort on
+PlotMatrixCombined(dataOriginal, minimum,maximum,Category,sortType,Participant, mypalette)
+
+
+
+dataOriginal<-NNSCR#data coming up from RSM functions it should contain the variable mean_all
+mypalette<- numeric()#colors
+minimum<-numeric()#scale
+maximum<-numeric()# scale
+Category<- "trials" # VP or trials
+Participant<- "Similarity" # factor() #if individual participants are to be selected,
+sortType<- "Arousal" #variable to sort on
+PlotMatrixCombined(dataOriginal, minimum,maximum,Category,sortType,Participant, mypalette)
+
+#Plot individual Data
+library(ggridges) # ridgeline plot
+library(tidyr) # long format
+library(colorBlindness)
+library(RColorBrewer)
+test = cbind(AroRatings_invAK_SCR_Single_tableCorrelation,
+             AroRatings_NN_SCR_Single_tableCorrelation)
+test2 = test[c(1,2,4)]
+names(test2)<-c("VP", "inverted AK", "NN")
+long_data2 <- gather(test2, key = "model", value = "Similarity", 2:3)
+
+ggplot(long_data2, aes(x=Similarity, y=model, fill = model))  + geom_density_ridges()+
+    scale_fill_brewer(palette = 4) +
+  theme_ridges() + theme(legend.position = "none")+
+  labs(x = "rho value", y = "Regressor")+
+  geom_vline(xintercept = 0, color = "red", linetype = "dashed")
+# colorblind friendly
+cols = c( 'darkgoldenrod1','darkmagenta')
+
+# "#004949"  ,   "#009292" ,    "#FF6DB6"    , "#FFB6DB" ,    "#490092"  ,   "#006DDB" ,
+#     "#B66DFF"  ,   "#6DB6FF"   ,  "#B6DBFF")
+ggplot(long_data2, aes(x=Similarity, y=model, fill = model, alpha = .2))  + 
+  theme_classic() + theme(legend.position = "none")+
+  labs(x = "Similarity", y = "")+
+  scale_y_discrete(expand = expansion(add = c(0,1)))+
+  geom_density_ridges(quantile_lines=TRUE,bandwidth = 0.1,
+                      quantile_fun=function(x,...)mean(x), size = 1) +
+  scale_fill_manual(values = cols, )+
+  geom_vline(xintercept = 0, color = "black", linetype = "dashed", size = 1)+
+  scale_x_continuous(breaks= c(-.5,-.25,0, .25,.5,.75), limits= c(-.5,.8))+
+  theme(axis.text.x= element_text(size=20),
+        axis.text.y= element_blank(), #element_text(size=15),
+        axis.title.x =  element_text( size=25,face="bold"),
+        axis.title.y = element_text( size=15,face="bold"))
+
+
+
+}
+```
+
+```{r}
+ggarrange(AroRatings_invAK_SCR_Vector_IndividualPlot,AroRatings_invAK_SCR_Single_IndividualPlot ,
+            labels = c("Vector", "Single" ),   hjust=-5,
+            ncol = 2, nrow =1, widths = c(10,10))
+
+ ggarrange( SCR_Vector_AroRatings_invAK_PermOutput[["Output"]][["PermutationPlot"]],
+            SCR_Single_AroRatings_invAK_PermOutput[["Output"]][["PermutationPlot"]],
+            labels = c("Vector", "Single" ),   hjust=-2,
+            ncol = 1, nrow =2, widths = c(10,10))
+```
+
+### Test the unique contribution of each model (i.e., NN and invAK)  for Vector-and amplitude-based 
+#### **VECTOR**
+```{r, readRDS myData4,include=FALSE }
+#------------ VECtOR------------------
+if (loadData==0){
+
+#PermutationwithRegression
+OriginalData<- SCR_Vector_corr_prep_all
+ModelData1<-Behav_Single_invAK_corr_prep_all
+ModelData2<- Behav_Single_NN_corr_prep_all
+VariableOriginal<-"SCR_Vector"
+VariableModel1<- "AroRatings_invAK"
+VariableModel2<- "AroRatings_NN"
+seedPer<-49
+nPermutations<-10000
+PlotRSMReg<-1
+Category = "Trials"
+
+PermutationTestRegModels(OriginalData,ModelData1,
+                         ModelData2,VariableOriginal,VariableModel1,VariableModel2,Category,
+                         nPermutations,seedPer,PlotRSMReg)
+
+
+#Individual Data
+RSMIndividualRegression(OriginalData,ModelData1,ModelData2,VariableOriginal,VariableModel1,VariableModel2) 
+
+
+t.test(SCRSingle_AroRatings_invAK_AroRatings_NN_tableRegression$Similarity_SCR_Single_AroRatings_invAK, mu = 0)
+t.test(SCRSingle_AroRatings_invAK_AroRatings_NN_tableRegression$Similarity_SCR_Single_AroRatings_NN, mu = 0)
+#---------- BAYES t-test: 
+ extractBF(ttestBF( SCRSingle_AroRatings_invAK_AroRatings_NN_tableRegression$Similarity_SCR_Single_AroRatings_invAK), onlybf = TRUE)
+   extractBF(ttestBF( SCRSingle_AroRatings_invAK_AroRatings_NN_tableRegression$Similarity_SCR_Single_AroRatings_NN), onlybf = TRUE)
+
+
+
+#Combine two histograms in one
+p1<-matrix(unlist(SCR_Single_AroRatings_invAK_AroRatings_NN_PermOutputRegr[["Model1"]][["PermutationTest"]][["value"]]), ncol=1)
+p2<-matrix(unlist(SCR_Single_AroRatings_invAK_AroRatings_NN_PermOutputRegr[["Model2"]][["PermutationTest"]][["value"]]), ncol=1)
+p1<-tibble(p1)
+
+p2<-tibble(p2)
+p1$model<-"inverted AK"
+p2$model<-"NN"
+names(p1)<-c("permutation","model")
+  names(p2)<- c("permutation","model")
+
+ptotal<-rbind(p1,p2)
+
+similarity1<-matrix(unlist(SCR_Single_AroRatings_invAK_AroRatings_NN_PermOutputRegr[["Model1"]][["Similarity"]]),ncol=1)
+similarity2<-matrix(unlist(SCR_Single_AroRatings_invAK_AroRatings_NN_PermOutputRegr[["Model2"]][["Similarity"]]),ncol=1)
+similarity1$model<-"inverted AK"
+similarity2$model<-"NN"
+names(similarity1)<-c("Similarity","model")
+  names(similarity2)<- c("Similarity","model")
+similaritytotal<-as.data.frame(rbind(similarity1,similarity2))
+similaritytotal$Similarity<-as.numeric(similaritytotal$Similarity)
+similaritytotal$model<-as.factor(similaritytotal$model)
+
+
+th1<-matrix(unlist(SCR_Single_AroRatings_invAK_AroRatings_NN_PermOutputRegr[["Model1"]][["PermutationTest"]][["value"]][9500]), ncol=1)
+th2<-matrix(unlist(SCR_Single_AroRatings_invAK_AroRatings_NN_PermOutputRegr[["Model2"]][["PermutationTest"]][["value"]][9500]), ncol=1)
+th1<-tibble(th1)
+
+th2<-tibble(th2)
+th1$model<-"inverted AK"
+th2$model<-"NN"
+names(th1)<-c("threshold","model")
+  names(th2)<- c("threshold","model")
+
+thtotal<-rbind(th1,th2)
+
+
+test<-
+  ggplot(ptotal, aes(permutation, fill = model)) + geom_density(alpha = 0.2)+     scale_fill_manual(values=c('darkgoldenrod1','darkmagenta'))+
+      scale_y_continuous(expand = expansion(mult = c(0, .1)))
+
+test+geom_vline(data=similaritytotal, aes(xintercept=Similarity),
+            color= c('darkgoldenrod1','darkmagenta'), linetype="solid",size = 2)+
+    geom_vline(data=thtotal, aes(xintercept=threshold),
+            color= c('darkgoldenrod1','darkmagenta'), linetype="dashed",size = 2)+
+  theme_classic()+
+      theme(axis.text.x= element_text(size=15),
+             axis.text.y= element_text(size=15),
+             axis.title.x = element_text( size=15,face="bold"),
+             axis.title.y = element_text( size=15,face="bold"))
+
+
+#RSMs combined
+SCR<-SCR_Single_corr_prep_all%>% select(var1, var2, mean_all)
+SCR$Similarity<-SCR$mean_all
+invAK<- SCR_Single_AroRatings_invAK_AroRatings_NN_PermOutputRegr[["Ouput"]][["RSMPlotRegressionM1"]][["data"]]%>% select(var1, var2, mean_all)
+invAK$Similarity<-invAK$mean_all
+NN<- SCR_Single_AroRatings_invAK_AroRatings_NN_PermOutputRegr[["Ouput"]][["RSMPlotRegressionM2"]][["data"]]%>% select(var1, var2, mean_all)
+NN$Similarity<-NN$mean_all
+SCRDown<-SCR%>% filter(var1<var2)
+invAKUp<- invAK%>% filter(var1>var2)
+NNUp<- NN%>%filter(var1>var2)
+
+invAKSCR<- rbind(SCRDown,invAKUp)
+NNSCR<- rbind(SCRDown, NNUp)
+library(ggnewscale)
+
+dataOriginal<-invAKSCR#data coming up from RSM functions it should contain the variable mean_all
+mypalette<- numeric()#colors
+minimum<-numeric()#scale
+maximum<-numeric()# scale
+Category<- "trials" # VP or trials
+Participant<- "Similarity" # factor() #if individual participants are to be selected,
+sortType<- "Arousal" #variable to sort on
+PlotMatrixCombined(dataOriginal, minimum,maximum,Category,sortType,Participant, mypalette)
+
+
+
+dataOriginal<-NNSCR#data coming up from RSM functions it should contain the variable mean_all
+mypalette<- numeric()#colors
+minimum<-numeric()#scale
+maximum<-numeric()# scale
+Category<- "trials" # VP or trials
+Participant<- "Similarity" # factor() #if individual participants are to be selected,
+sortType<- "Arousal" #variable to sort on
+PlotMatrixCombined(dataOriginal, minimum,maximum,Category,sortType,Participant, mypalette)
+
+
+
+#Plot individual Data
+library(ggridges) # ridgeline plot
+library(tidyr) # long format
+library(colorBlindness)
+library(RColorBrewer)
+
+test2 = SCRSingle_AroRatings_invAK_AroRatings_NN_tableRegression
+names(test2)<-c("VP", "inverted AK", "NN")
+long_data2 <- gather(test2, key = "model", value = "Similarity", 2:3)
+# colorblind friendly
+cols = c( 'darkgoldenrod1','darkmagenta')
+
+# "#004949"  ,   "#009292" ,    "#FF6DB6"    , "#FFB6DB" ,    "#490092"  ,   "#006DDB" ,
+#     "#B66DFF"  ,   "#6DB6FF"   ,  "#B6DBFF")
+ggplot(long_data2, aes(x=Similarity, y=model, fill = model, alpha = .2))  + 
+  theme_classic() + theme(legend.position = "none")+
+  labs(x = "Similarity", y = "")+
+  scale_y_discrete(expand = expansion(add = c(0,1)))+
+  geom_density_ridges(quantile_lines=TRUE,bandwidth = 0.1,
+                      quantile_fun=function(x,...)mean(x), size = 1) +
+  scale_fill_manual(values = cols, )+
+  geom_vline(xintercept = 0, color = "black", linetype = "dashed", size = 1)+
+  scale_x_continuous(breaks= c(-.5,-.25,0, .25,.5,.75), limits= c(-.5,.8))+
+  theme(axis.text.x= element_text(size=20),
+        axis.text.y= element_blank(), #element_text(size=15),
+        axis.title.x =  element_text( size=25,face="bold"),
+        axis.title.y = element_text( size=15,face="bold"))
+
+}
+```
+
+```{r}
+ ggarrange(SCR_Vector_AroRatings_invAK_AroRatings_NN_IndividualPlotRegression[[1]],
+SCR_Vector_AroRatings_invAK_AroRatings_NN_IndividualPlotRegression[[2]],
+            labels = c("", "" ),   vjust=-7,
+            ncol = 2, nrow =1, widths = c(5,5))
+
+
+ ggarrange(SCR_Vector_AroRatings_invAK_AroRatings_NN_PermOutputRegr[["Ouput"]][["RSMPlotRegressionM1"]],
+SCR_Vector_AroRatings_invAK_AroRatings_NN_PermOutputRegr[["Ouput"]][["RSMPlotRegressionM2"]],
+            labels = c("", "" ),   vjust=-7,
+            ncol = 2, nrow =1, widths = c(5,5))
+
+ggarrange( SCR_Vector_AroRatings_invAK_AroRatings_NN_PermOutputRegr[["Ouput"]][["PermutationPlotM1"]],
+SCR_Vector_AroRatings_invAK_AroRatings_NN_PermOutputRegr[["Ouput"]][["PermutationPlotM2"]],
+            labels = c("iAK", "NN"),   vjust=(12),
+            ncol = 1, nrow =2, widths = c(5,5))
+```
+
+  
+#### **Amplitude**  
+```{r, readRDS myData5,include=FALSE }
+#------------ VECtOR------------------
+if (loadData==0){
+
+#PermutationwithRegression
+OriginalData<- SCR_Single_corr_prep_all
+ModelData1<-Behav_Single_invAK_corr_prep_all
+ModelData2<- Behav_Single_NN_corr_prep_all
+VariableOriginal<-"SCR_Single"
+VariableModel1<- "AroRatings_invAK"
+VariableModel2<- "AroRatings_NN"
+seedPer<-49
+nPermutations<-10000
+PlotRSMReg<-1
+Category = "Trials"
+
+PermutationTestRegModels(OriginalData,ModelData1,
+                         ModelData2,VariableOriginal,VariableModel1,VariableModel2,Category,
+                         nPermutations,seedPer,PlotRSMReg)
+
+RSMIndividualRegression(OriginalData,ModelData1,ModelData2,VariableOriginal,VariableModel1,VariableModel2) 
+
+}
+
+```
+
+```{r}
+ggarrange(SCR_Single_AroRatings_invAK_AroRatings_NN_IndividualPlotRegression[[1]],
+SCR_Single_AroRatings_invAK_AroRatings_NN_IndividualPlotRegression[[2]],
+            labels = c("", "" ),   vjust=-7,
+            ncol = 2, nrow =1, widths = c(5,5))
+
+
+ ggarrange( SCR_Single_AroRatings_invAK_AroRatings_NN_PermOutputRegr[["Ouput"]][["RSMPlotRegressionM1"]],
+SCR_Single_AroRatings_invAK_AroRatings_NN_PermOutputRegr[["Ouput"]][["RSMPlotRegressionM2"]],
+            labels = c("", "" ),   vjust=-7,
+            ncol = 2, nrow =1, widths = c(5,5))
+
+ggarrange( SCR_Single_AroRatings_invAK_AroRatings_NN_PermOutputRegr[["Ouput"]][["PermutationPlotM1"]],
+SCR_Single_AroRatings_invAK_AroRatings_NN_PermOutputRegr[["Ouput"]][["PermutationPlotM2"]],
+            labels = c("iAK", "NN"),   vjust=(12),
+            ncol = 1, nrow =2, widths = c(5,5))
+```
+
+  
+### Relationship between Similarity measures of the NN and invAK Model  
+```{r, readRDS myData6,include=FALSE }
+if (loadData==0){
+#VECTOR
+VecSimComparison<-inner_join(AroRatings_invAK_SCR_Vector_tableCorrelation,AroRatings_NN_SCR_Vector_tableCorrelation,
+                             by = "VP", suffix = c("invAK","NN"))
+
+cor.testVecSimCom<-cor.test(VecSimComparison$CorrelationinvAK,VecSimComparison$CorrelationNN)
+
+ p<- ggplot(VecSimComparison, aes(x=CorrelationinvAK, y=CorrelationNN)) +
+  geom_point(shape=21, color = "black",fill="gray75", size=5)+
+   theme(legend.position="none")+
+   stat_smooth(method = "lm",
+              formula = y ~ x,
+              geom = "smooth", color = "red")+
+   theme_classic()+
+ stat_cor(method = "pearson")+
+       ggtitle("SCR Vector")
+   
+SCRVectorCorrModComp<- ggMarginal(p ,type="histogram", fill = "slateblue", xparams = list(  bins=100))
+   
+#Amplitude
+SingleSimComparison<-inner_join(AroRatings_invAK_SCR_Single_tableCorrelation,AroRatings_NN_SCR_Single_tableCorrelation,
+                             by = "VP", suffix = c("invAK","NN"))
+
+cor.testSingSimCom<-cor.test(SingleSimComparison$CorrelationinvAK,SingleSimComparison$CorrelationNN)
+
+ p<- ggplot(SingleSimComparison, aes(x=CorrelationinvAK, y=CorrelationNN)) +
+  geom_point(shape=21, color = "black",fill="gray75", size=5)+
+   theme(legend.position="none")+
+   stat_smooth(method = "lm",
+              formula = y ~ x,
+              geom = "smooth", color = "red")+
+   theme_classic()+
+ stat_cor(method = "pearson")+
+       ggtitle("SCR Single")
+   
+SCRSingleCorrModComp<- ggMarginal(p ,type="histogram", fill = "slateblue", xparams = list(  bins=100))
+} 
+```
+
+```{r}
+ggarrange( SCRVectorCorrModComp,SCRSingleCorrModComp,
+            labels = c("", ""),   vjust=(12),
+            ncol = 1, nrow =2, widths = c(5))
+```
+### Plot individual participants as example:   
+#### High in invAK and and in NN Model
+``` {r}
+#Plot VP 
+#-------------- Plot RSM Matrix
+dataOriginal<-SCR_Single_corr_prep_all#data coming up from RSM functions it should contain the variable mean_all
+mypalette<- numeric()#colors
+minimum<-numeric()#scale
+maximum<-numeric()# scale
+Category<- "trials" # VP or trials
+Participant<- "VP19" # factor() #if individual participants are to be selected,
+sortType<- "Arousal" #variable to sort on
+PlotMatrix(dataOriginal, minimum,maximum,Category,sortType,Participant, mypalette)
+
+```
+
+
+#### High in invAK and close to 0 in NN Model  
+``` {r}
+#Plot VP 
+#-------------- Plot RSM Matrix
+dataOriginal<-SCR_Single_corr_prep_all#data coming up from RSM functions it should contain the variable mean_all
+mypalette<- numeric()#colors
+minimum<-numeric()#scale
+maximum<-numeric()# scale
+Category<- "trials" # VP or trials
+Participant<- "VP46" # factor() #if individual participants are to be selected,
+sortType<- "Arousal" #variable to sort on
+PlotMatrix(dataOriginal, minimum,maximum,Category,sortType,Participant, mypalette)
+```
+
+
+#### Low in invAK and moderate in NN Model
+``` {r}
+#Plot VP 
+#-------------- Plot RSM Matrix
+dataOriginal<-SCR_Single_corr_prep_all#data coming up from RSM functions it should contain the variable mean_all
+mypalette<- numeric()#colors
+minimum<-numeric()#scale
+maximum<-numeric()# scale
+Category<- "trials" # VP or trials
+Participant<- "VP22" # factor() #if individual participants are to be selected,
+sortType<- "Arousal" #variable to sort on
+PlotMatrix(dataOriginal, minimum,maximum,Category,sortType,Participant, mypalette)
+
+```
+
+##  **Model Testing Beyond Arousal. Is the invAK the best fitting model? (analyses only performed for Amplitude-based RSM)**  
+### Model Time  
+```{r, readRDS myData7,include=FALSE }
+if (loadData==0){
+  #----------- MODEL TIME-----------------------
+#Create Matrix based on single BEHAVIORAL
+PicBehavArosVTime<-SCR_RSM  %>%
+  filter(Task_def==1)%>%
+  dplyr::select(Vp_ratings, sortAro,trial_order)
+PicBehavArosVTime<-PicBehavArosVTime%>%
+  rename(Behavioral= trial_order)%>%
+  rename(sort= sortAro)
+# OriginalData<-PicEdaArosV
+MaxValue<- max(PicBehavArosVTime$Behavioral, na.rm=T)
+
+nVariables<-36 # this variable defines the number of cells e.g., pictures presented
+CharContainingNumberFromVector<-3 #Character containing number from variables coding vector.
+#e.g., EDA1, EDA2, EDA3... the character is 4: 1, 2, 3...
+### Select the variables needed for the loop: VP, Variable sorting, Vector values
+VariableType<-"Behav_SingleTimeSortedbyArousal"
+sortType<- "TimeSortedbyArousal"
+
+RSMSingleValue(PicBehavArosVTime,nVariables,CharContainingNumberFromVector,VariableType,sortType, MaxValue)
+
+Model<-"SCRSingle"
+Data<- "TimeSortedByArousal"
+RSMIndividual(SCR_Single_corr_prep_all,Behav_SingleTimeSortedbyArousal_corr_prep_all,Model,Data)
+
+
+}
+```
+
+
+```{r}
+SCRSingle_TimeSortedByArousal_IndividualPlot
+```
+
+### Test whether the invAK model is contributing beyond time  
+```{r, readRDS myData8,include=FALSE }
+if (loadData==0){
+# Individual Regression
+OriginalData<- SCR_Single_corr_prep_all
+ModelData1<-Behav_Single_invAK_corr_prep_all
+ModelData2<- Behav_SingleTimeSortedbyArousal_corr_prep_all
+VariableOriginal<-"SCR_Single"
+VariableModel1<- "AroRatings_invAK"
+VariableModel2<- "Time_NN"
+
+RSMIndividualRegression(OriginalData,ModelData1,ModelData2,VariableOriginal,VariableModel1,VariableModel2) 
+
+#Amplitude
+SingleSimComparisonTime<-inner_join(AroRatings_invAK_SCR_Single_tableCorrelation,SCRSingle_TimeSortedByArousal_tableCorrelation,
+                             by = "VP", suffix = c("invAK","Time"))
+
+cor.testSingSimComTime<-cor.test(SingleSimComparisonTime$CorrelationinvAK,SingleSimComparisonTime$CorrelationTime)
+
+ p<- ggplot(SingleSimComparisonTime, aes(x=CorrelationinvAK, y=CorrelationTime)) +
+  geom_point(shape=21, color = "black",fill="gray75", size=5)+
+   theme(legend.position="none")+
+   stat_smooth(method = "lm",
+              formula = y ~ x,
+              geom = "smooth", color = "red")+
+   theme_classic()+
+ stat_cor(method = "pearson")+
+       ggtitle("SCR Single")
+   
+SCRSingleCorrModCompTime<- ggMarginal(p ,type="histogram", fill = "slateblue", xparams = list(  bins=100))
+}
+# save.image("RSA_SCR_Pic_VB22_Def.RData")
+
+```
+
+```{r}
+SCRSingleCorrModCompTime
+
+ggarrange(SCR_Single_AroRatings_invAK_Time_NN_IndividualPlotRegression[[1]],
+SCR_Single_AroRatings_invAK_Time_NN_IndividualPlotRegression[[2]],
+            labels = c("", "" ),   vjust=-7,
+            ncol = 2, nrow =1, widths = c(5,5))
+
+
+
+```
+
+
+### Model Category (Pleasant, Unpleasant, Neutral)  
+```{r, readRDS myData88,include=FALSE }
+if (loadData==0){
+ #----------------------------- MODEL Category --------------------------------------
+PicBehavArosVCat<-SCR_RSM  %>%
+  filter(Task_def==1)
+  PicBehavArosVCat$Category<-ifelse(PicBehavArosVCat$trial_type==2,"Pl",
+                           ifelse(PicBehavArosVCat$trial_type==4,"Un","Ne"))
+    PicBehavArosVCat<-PicBehavArosVCat%>%
+    dplyr::select(Vp_ratings, sortAro,length(PicBehavArosVCat))
+
+
+PicBehavArosVCat<-PicBehavArosVCat%>%
+  rename(Behavioral= Category)%>%
+  rename(sort= sortAro)
+# OriginalData<-PicEdaArosV
+MaxValue<- 1
+nVariables<-36 # this variable defines the number of cells e.g., pictures presented
+CharContainingNumberFromVector<-3 #Character containing number from variables coding vector.
+#e.g., EDA1, EDA2, EDA3... the character is 4: 1, 2, 3...
+### Select the variables needed for the loop: VP, Variable sorting, Vector values
+VariableType<-"Behav_SingleCategorySortedbyArousal"
+sortType<- "CategorySortedbyArousal"
+
+RSMSingleValueFactor(PicBehavArosVCat,nVariables,CharContainingNumberFromVector,VariableType,sortType, MaxValue)
+
+
+Model<-"SCRSingle"
+Data<- "Categorysortedbyarousal"
+RSMIndividual(SCR_Single_corr_prep_all,Behav_SingleCategorySortedbyArousal_corr_prep_all,Model,Data)
+ 
+ }
+# save.image("RSA_SCR_Pic_VB22_Def.RData")
+
+```
+
+```{r}
+SCRSingle_Categorysortedbyarousal_IndividualPlot
+```
+
+
+### Test whether the invAK model is contributing beyond Category
+```{r, readRDS myData10,include=FALSE }
+if (loadData==0){
+# Individual Regression
+OriginalData<- SCR_Single_corr_prep_all
+ModelData1<-Behav_Single_invAK_corr_prep_all
+ModelData2<- Behav_SingleCategorySortedbyArousal_corr_prep_all
+VariableOriginal<-"SCR_Single"
+VariableModel1<- "AroRatings_invAK"
+VariableModel2<- "Category_Factor"
+
+RSMIndividualRegression(OriginalData,ModelData1,ModelData2,VariableOriginal,VariableModel1,VariableModel2) 
+
+#Amplitude
+SingleSimComparisonCat<-inner_join(AroRatings_invAK_SCR_Single_tableCorrelation,SCRSingle_Categorysortedbyarousal_tableCorrelation,
+                             by = "VP", suffix = c("invAK","Cat"))
+
+cor.testSingSimComCat<-cor.test(SingleSimComparisonCat$CorrelationinvAK,SingleSimComparisonCat$CorrelationCat)
+
+ p<- ggplot(SingleSimComparisonCat, aes(x=CorrelationinvAK, y=CorrelationCat)) +
+  geom_point(shape=21, color = "black",fill="gray75", size=5)+
+   theme(legend.position="none")+
+   stat_smooth(method = "lm",
+              formula = y ~ x,
+              geom = "smooth", color = "red")+
+   theme_classic()+
+ stat_cor(method = "pearson")+
+       ggtitle("SCR Single")
+   
+SCRSingleCorrModCompCat<- ggMarginal(p ,type="histogram", fill = "slateblue", xparams = list(  bins=100))
+}
+# save.image("RSA_SCR_Pic_VB22_Def.RData")
+
+```
+
+```{r}
+SCRSingleCorrModCompCat
+
+ggarrange(SCR_Single_AroRatings_invAK_Category_Factor_IndividualPlotRegression[[1]],
+SCR_Single_AroRatings_invAK_Category_Factor_IndividualPlotRegression[[2]],
+            labels = c("", "" ),   vjust=-7,
+            ncol = 2, nrow =1, widths = c(5,5))
+
+
+
+```
+
+
+
+### Model Valence
+```{r, readRDS myData9,include=FALSE }
+if (loadData==0){
+ #----------------------------- MODEL Valence --------------------------------------
+PicBehavArosVVal<-SCR_RSM  %>%
+  filter(Task_def==1)%>%
+  dplyr::select(Vp_ratings, sortAro,Val)
+PicBehavArosVVal<-PicBehavArosVVal%>%
+  rename(Behavioral= Val)%>%
+  rename(sort= sortAro)
+# OriginalData<-PicEdaArosV
+MaxValue<- max(PicBehavArosVVal$Behavioral, na.rm=T)
+
+nVariables<-36 # this variable defines the number of cells e.g., pictures presented
+CharContainingNumberFromVector<-3 #Character containing number from variables coding vector.
+#e.g., EDA1, EDA2, EDA3... the character is 4: 1, 2, 3...
+### Select the variables needed for the loop: VP, Variable sorting, Vector values
+VariableType<-"Behav_SingleValSortedbyArousal"
+sortType<- "ValSortedbyArousal"
+
+RSMSingleValue(PicBehavArosVVal,nVariables,CharContainingNumberFromVector,VariableType,sortType, MaxValue)
+ 
+Model<-"SCRSingle"
+Data<- "ValSortedByArousal"
+RSMIndividual(SCR_Single_corr_prep_all,Behav_SingleValSortedbyArousal_corr_prep_all,Model,Data)
+
+
+}
+# save.image("RSA_SCR_Pic_VB22_Def.RData")
+
+```
+
+```{r}
+SCRSingle_ValSortedByArousal_IndividualPlot
+```
+
+### Test whether the invAK model is contributing beyond Valence
+```{r, readRDS myData11,include=FALSE }
+if (loadData==0){
+# Individual Regression
+OriginalData<- SCR_Single_corr_prep_all
+ModelData1<-Behav_Single_invAK_corr_prep_all
+ModelData2<- Behav_SingleValSortedbyArousal_corr_prep_all
+VariableOriginal<-"SCR_Single"
+VariableModel1<- "AroRatings_invAK"
+VariableModel2<- "Valence_NN"
+
+RSMIndividualRegression(OriginalData,ModelData1,ModelData2,VariableOriginal,VariableModel1,VariableModel2) 
+
+#Amplitude
+SingleSimComparisonVal<-inner_join(AroRatings_invAK_SCR_Single_tableCorrelation,SCRSingle_ValSortedByArousal_tableCorrelation,
+                             by = "VP", suffix = c("invAK","Val"))
+
+cor.testSingSimComVal<-cor.test(SingleSimComparisonVal$CorrelationinvAK,SingleSimComparisonVal$CorrelationVal)
+
+ p<- ggplot(SingleSimComparisonVal, aes(x=CorrelationinvAK, y=CorrelationVal)) +
+  geom_point(shape=21, color = "black",fill="gray75", size=5)+
+   theme(legend.position="none")+
+   stat_smooth(method = "lm",
+              formula = y ~ x,
+              geom = "smooth", color = "red")+
+   theme_classic()+
+ stat_cor(method = "pearson")+
+       ggtitle("SCR Single")
+   
+SCRSingleCorrModCompVal<- ggMarginal(p ,type="histogram", fill = "slateblue", xparams = list(  bins=100))
+}
+# save.image("RSA_SCR_Pic_VB22_Def.RData")
+
+```
+
+```{r}
+SCRSingleCorrModCompVal
+
+ggarrange(SCR_Single_AroRatings_invAK_Valence_NN_IndividualPlotRegression[[1]],
+SCR_Single_AroRatings_invAK_Valence_NN_IndividualPlotRegression[[2]],
+            labels = c("", "" ),   vjust=-7,
+            ncol = 2, nrow =1, widths = c(5,5))
+```
+
+### Model Category based on Arousal (Arousing, non-arousing images)
+```{r, readRDS myData12,include=FALSE }
+if (loadData==0){
+ #----------------------------- MODEL Category 2 (arousing non-arousing) --------------------------------------
+PicBehavArosVCat$Category2<-ifelse(PicBehavArosVCat$Behavioral=="Ne","No","Ye")
+PicEdaArosVCat2<-PicBehavArosVCat  %>%
+  dplyr::select(Vp_ratings, sort,Category2)
+PicEdaArosVCat2<-PicEdaArosVCat2%>%
+  rename(Behavioral= Category2)
+# OriginalData<-PicEdaArosV
+MaxValue<- 1
+nVariables<-36 # this variable defines the number of cells e.g., pictures presented
+CharContainingNumberFromVector<-3 #Character containing number from variables coding vector.
+#e.g., EDA1, EDA2, EDA3... the character is 4: 1, 2, 3...
+### Select the variables needed for the loop: VP, Variable sorting, Vector values
+VariableType<-"Behav_SingleCategory2SortedbyArousal"
+sortType<- "CategorySortedbyArousal"
+
+RSMSingleValueFactor(PicEdaArosVCat2,nVariables,CharContainingNumberFromVector,VariableType,sortType, MaxValue)
+
+Model<-"SCRSingle"
+Data<- "Category2SortedbyArousal"
+RSMIndividual(SCR_Single_corr_prep_all,Behav_SingleCategory2SortedbyArousal_corr_prep_all,Model,Data)
+
+}
+# save.image("RSA_SCR_Pic_VB22_Def.RData")
+
+```
+
+
+```{r}
+SCRSingle_Category2SortedbyArousal_IndividualPlot
+```
+### Test whether the invAK model is contributing beyond Category 2
+```{r, readRDS myData13,include=FALSE }
+if (loadData==0){
+# Individual Regression
+OriginalData<- SCR_Single_corr_prep_all
+ModelData1<-Behav_Single_invAK_corr_prep_all
+ModelData2<- Behav_SingleCategory2SortedbyArousal_corr_prep_all
+VariableOriginal<-"SCR_Single"
+VariableModel1<- "AroRatings_invAK"
+VariableModel2<- "Category2_Factor"
+
+RSMIndividualRegression(OriginalData,ModelData1,ModelData2,VariableOriginal,VariableModel1,VariableModel2) 
+
+#Amplitude
+SingleSimComparisonCat2<-inner_join(AroRatings_invAK_SCR_Single_tableCorrelation,SCRSingle_Category2SortedbyArousal_tableCorrelation,
+                             by = "VP", suffix = c("invAK","Cat2"))
+
+cor.testSingSimComCat2<-cor.test(SingleSimComparisonCat2$CorrelationinvAK,SingleSimComparisonCat2$CorrelationCat2)
+
+ p<- ggplot(SingleSimComparisonCat2, aes(x=CorrelationinvAK, y=CorrelationCat2)) +
+  geom_point(shape=21, color = "black",fill="gray75", size=5)+
+   theme(legend.position="none")+
+   stat_smooth(method = "lm",
+              formula = y ~ x,
+              geom = "smooth", color = "red")+
+   theme_classic()+
+ stat_cor(method = "pearson")+
+       ggtitle("SCR Single")
+   
+SCRSingleCorrModCompCat2<- ggMarginal(p ,type="histogram", fill = "slateblue", xparams = list(  bins=100))
+}
+
+```
+
+```{r}
+SCRSingleCorrModCompCat2
+
+ggarrange(SCR_Single_AroRatings_invAK_Category2_Factor_IndividualPlotRegression[[1]],
+SCR_Single_AroRatings_invAK_Category2_Factor_IndividualPlotRegression[[2]],
+            labels = c("", "" ),   vjust=-7,
+            ncol = 2, nrow =1, widths = c(5,5))
+# save.image("RSA_SCR_Pic_VB22_Def.RData")
+
+```
+
+
+```{r rigdge-plot}
+library(ggridges) # ridgeline plot
+library(tidyr) # long format
+library(colorBlindness)
+library(RColorBrewer)
+#install.packages("cols4all", dependencies = TRUE)
+#library(cols4all)
+# long_data <- gather(SingleSimComparisonCat2, key = "model", value = "Correlation", 2:3)
+# ggplot(long_data, aes(x=Correlation, y=model))  + geom_density_ridges()
+# ### single model alternative based on RSM data
+# # STR_VariableModel1_VariableModel2_tableRegression = tableCorrelation
+# long_data2 <- gather(STR_VariableModel1_VariableModel2_tableRegression, key = "model", value = "Similarity", 2:3)
+# ggplot(long_data2, aes(x=Similarity, y=model))  + geom_density_ridges()+
+#   scale_y_discrete(labels = c(VariableModel1, VariableModel2))
+### all models
+test = cbind(SCRSingle_AroRatings_invAK_Time_NN_tableRegression,SCRSingle_AroRatings_invAK_Category_Factor_tableRegression,SCRSingle_AroRatings_invAK_Category2_Factor_tableRegression, SCRSingle_AroRatings_invAK_Valence_NN_tableRegression)
+test2 = test[-c(3,4,6,7,9,10,12,13)]
+names(test2)<-c("VP", "Time", "Cat", "Cat2", "Valence")
+long_data2 <- gather(test2, key = "model", value = "Similarity", 2:5)
+#---------- BAYES t-test: 
+
+#Bayes testing
+t.test(test2$Time, mu = 0)
+
+t.test(test2$Cat, mu = 0)
+t.test(test2$Cat2, mu = 0)
+t.test(test2$Valence, mu = 0)
+
+extractBF(ttestBF( test2$Time), onlybf = TRUE)
+  extractBF(ttestBF( test2$Cat), onlybf = TRUE)
+  extractBF(ttestBF( test2$Cat2), onlybf = TRUE)
+  extractBF(ttestBF( test2$Valence), onlybf = TRUE)
+
+ 
+ggplot(long_data2, aes(x=Similarity, y=model, fill = model))  + geom_density_ridges()+
+    scale_fill_brewer(palette = 4) +
+  theme_ridges() + theme(legend.position = "none")+
+  labs(x = "rho value", y = "Regressor")+
+  geom_vline(xintercept = 0, color = "red", linetype = "dashed")
+# colorblind friendly
+cols = c("#E69F00"  ,   "#004949"  ,   "#009292" ,    "#FF6DB6"    , "#FFB6DB" ,    "#490092"  ,   "#006DDB" ,
+    "#B66DFF"  ,   "#6DB6FF"   ,  "#B6DBFF")
+ggplot(long_data2, aes(x=Similarity, y=model, fill = model))  + geom_density_ridges()+
+  theme_ridges() + theme(legend.position = "none")+
+  labs(x = "rho value", y = "regressor")+
+geom_density_ridges(quantile_lines=TRUE,
+                      quantile_fun=function(x,...)mean(x)) +
+  scale_fill_manual(values = cols)+
+  geom_vline(xintercept = 0, color = "red", linetype = "dashed")
+#displayAvailablePalette(color="white")
+
+#FINAL GRAPH
+
+cols = c(  "#6DB6FF" , "#004949"  ,    "#FFB6DB","#B66DFF"   )
+
+ggplot(long_data2, aes(x=Similarity, y=model, fill = model, alpha = .2))  + 
+  theme_classic() + theme(legend.position = "none")+
+  labs(x = "Similarity", y = "")+
+  scale_y_discrete(expand = expansion(add = c(0,1)))+
+  geom_density_ridges(quantile_lines=TRUE,bandwidth = 0.1,
+                      quantile_fun=function(x,...)mean(x), size = 1) +
+  scale_fill_manual(values = cols, )+
+  geom_vline(xintercept = 0, color = "black", linetype = "dashed", size = 1)+
+  scale_x_continuous(breaks= c(-.5,-.25,0, .25,.5,.75), limits= c(-.5,.8))+
+  theme(axis.text.x= element_text(size=20),
+        axis.text.y= element_blank(), #element_text(size=15),
+        axis.title.x =  element_text( size=25,face="bold"),
+        axis.title.y = element_text( size=15,face="bold"))
+
+
+
+#----------------- Plotting means and STD,
+#it needs to be filtered by task
+# SCR_RSM$Cat<-ifelse(SCR_RSM$trial_type==2, "Pl",
+#                          ifelse(SCR_RSM$trial_type==4, "Un", "Ne"))
+# testlm<-lmer(EDA_mean_log~Cat + (1|Vp_ratings), data= SCR_RSM)
+# summary(testlm)
+SCR_RSMSumm<-SCR_RSM%>%
+  group_by(Vp_ratings,trial_type)%>%
+  dplyr::summarise(meanSCR= mean(EDA_mean_log,na.rm=T),
+                   SDSCR= sd(EDA_mean_log,na.rm=T),
+                   meanAro= mean(Aro, na.rm=T),
+                   SDAro= sd(Aro, na.rm=T))%>%ungroup
+
+SCR_RSMSumm$Cat<-ifelse(SCR_RSMSumm$trial_type==2, "Pl",
+                         ifelse(SCR_RSMSumm$trial_type==4, "Un", "Ne"))
+
+SCR_RSMSumm$Cat<-as.factor(SCR_RSMSumm$Cat)
+res.aov2 <- rstatix::anova_test(data = SCR_RSMSumm, dv = meanSCR, 
+                                wid = Vp_ratings, within = c(trial_type))
+get_anova_table(res.aov2)
+
+res.aov3 <- rstatix::anova_test(data = SCR_RSMSumm, dv = SDSCR, 
+                                wid = Vp_ratings, within = c(trial_type))
+get_anova_table(res.aov3)
+
+res.aov4 <- rstatix::anova_test(data = SCR_RSMSumm, dv = meanAro, 
+                                wid = Vp_ratings, within = c(trial_type))
+get_anova_table(res.aov4)
+
+res.aov5 <- rstatix::anova_test(data = SCR_RSMSumm, dv = SDAro, 
+                                wid = Vp_ratings, within = c(trial_type))
+get_anova_table(res.aov5)
+# 
+# res.aov4 <- rstatix::anova_test(data = SCR_RSMSumm, dv = meanSCR, covariate= SDSCR,
+#                                 wid = Vp_ratings, within = c(trial_type))
+# get_anova_table(res.aov4)
+
+testlm<-lmer(meanSCR~Cat*SDSCR + (1|Vp_ratings), data= SCR_RSMSumm)
+summary(testlm)
+
+plot_model(testlm, type = "pred", terms = c("SDSCR", "Cat"))
+
+
+
+testlm<-lmer(SDSCR~Cat*meanSCR + (1|Vp_ratings), data= SCR_RSMSumm)
+summary(testlm)
+
+testlm<-lmer(meanSCR~Cat*meanAro + (1|Vp_ratings), data= SCR_RSMSumm)
+summary(testlm)
+
+
+
+
+testlm<-lmer(meanAro~Cat*SDAro + (1|Vp_ratings), data= SCR_RSMSumm)
+summary(testlm)
+
+
+testlm<-lmer(SDAro~Cat*meanAro + (1|Vp_ratings), data= SCR_RSMSumm)
+summary(testlm)
+
+
+testlm<-lmer(trial_type~SDAro*meanAro + (1|Vp_ratings), data= SCR_RSMSumm)
+summary(testlm)
+plot_model(testlm, type = "pred", terms = c("SDAro", "meanAro"))
+
+testlm<-lmer(trial_type~SDSCR*meanSCR + (1|Vp_ratings), data= SCR_RSMSumm)
+summary(testlm)
+plot_model(testlm, type = "pred", terms = c("SDSCR", "meanSCR"))
+
+
+plot_model(testlm, type = "pred", terms = c("SDSCR", "Cat"))
+
+plot_model(testlm, type = "pred", terms = c("SDSCR", "Cat"))
+SCR_RSMSumm2<-SCR_RSMSumm%>%
+  group_by(trial_type)%>%
+  dplyr::summarise(sdmeanSCR= sd(meanSCR, na.rm=T),
+                  meanSCR= mean(meanSCR,na.rm=T),
+                  sdSDSCR= sd(SDSCR,na.rm=T),
+                  SDSCR= mean(SDSCR,na.rm=T),
+                   sdmeanAro= sd(meanAro, na.rm=T),
+                  sdSDAro= sd(SDAro,na.rm=T),
+                  meanAro= mean(meanAro, na.rm=T),
+                 SDAro = mean(SDAro, na.rm=T)
+
+)
+SCR_RSMSumm2$Cat<-ifelse(SCR_RSMSumm2$trial_type==2, "Pl",
+                         ifelse(SCR_RSMSumm2$trial_type==4, "Un", "Ne"))
+# plot means and STD
+nParticipant<- length(table(SCR_RSMSumm$Vp_ratings))
+
+Plot<-ggplot(data =SCR_RSMSumm2,aes()) +
+  #   #Add geom_() objects
+  geom_point(aes(x = Cat, y = meanSCR, color= Cat),
+             position = position_nudge(x =0), alpha = .8, size = 7) +
+  
+  geom_errorbar( aes(x = Cat, y = meanSCR,color= Cat,
+                     ymin = meanSCR-(sdmeanSCR/sqrt(nParticipant)), ymax = meanSCR+(sdmeanSCR/sqrt(nParticipant))),
+                 width = 0.05, size = 2, alpha = 1) +
+  
+  # geom_line(aes(x =Cat, y = meanSCR, group),
+  #           position = position_nudge(x = 0), size = 4) +
+  # # scale_y_continuous(breaks=c(0.1,.3,.5,.7,.9),#labels=c("","","", "","","not very good", "","quike ok","","","very good"),
+  #                    limits=c(0, .95),expand = expansion(mult = c(0, .1)))+
+  theme_classic()+ 
+  theme(legend.position="right",
+        legend.title= element_text(size= 24, face= "bold"),
+        legend.text= element_text(size=20),
+        panel.spacing = unit(3, "lines"))+
+  theme(axis.text.x= element_text(size=20),
+        axis.text.y= element_text(size=24),
+        axis.title.x = element_text( size=28,face="bold"),
+        axis.title.y = element_text( size=28,face="bold"))+
+  xlab("") + ylab("SCR") 
+
+
+
+Plot2<-ggplot(data =SCR_RSMSumm2,aes()) +
+  #   #Add geom_() objects
+  geom_point(aes(x = Cat, y = SDSCR, color= Cat),
+             position = position_nudge(x =0), alpha = .8, size = 7) +
+  
+  geom_errorbar( aes(x = Cat, y = meanSCR,color= Cat,
+                     ymin = SDSCR-(sdSDSCR/sqrt(nParticipant)), ymax = SDSCR+(sdSDSCR/sqrt(nParticipant))),
+                 width = 0.05, size = 2, alpha = 1) +
+  
+  # geom_line(aes(x =  Cat, y = SDSCR, group= Cat, color = Cat),
+  #           position = position_nudge(x = 0), size = 4) +
+  # # scale_y_continuous(breaks=c(0.1,.3,.5,.7,.9),#labels=c("","","", "","","not very good", "","quike ok","","","very good"),
+  #                    limits=c(0, .95),expand = expansion(mult = c(0, .1)))+
+  theme_classic()+ 
+  theme(legend.position="right",
+        legend.title= element_text(size= 24, face= "bold"),
+        legend.text= element_text(size=20),
+        panel.spacing = unit(3, "lines"))+
+  theme(axis.text.x= element_text(size=20),
+        axis.text.y= element_text(size=24),
+        axis.title.x = element_text( size=28,face="bold"),
+        axis.title.y = element_text( size=28,face="bold"))+
+  xlab("") + ylab("SDSCR") 
+
+Plot3<-ggplot(data =SCR_RSMSumm2,aes()) +
+  #   #Add geom_() objects
+  geom_point(aes(x = Cat, y = meanAro, color= Cat),
+             position = position_nudge(x =0), alpha = .8, size = 7) +
+  
+  geom_errorbar( aes(x = Cat, y = meanAro,color= Cat,
+                     ymin = meanAro-(sdmeanAro/sqrt(nParticipant)), ymax = meanAro+(sdmeanAro/sqrt(nParticipant))),
+                 width = 0.05, size = 2, alpha = 1) +
+  
+  theme_classic()+ 
+  theme(legend.position="right",
+        legend.title= element_text(size= 24, face= "bold"),
+        legend.text= element_text(size=20),
+        panel.spacing = unit(3, "lines"))+
+  theme(axis.text.x= element_text(size=20),
+        axis.text.y= element_text(size=24),
+        axis.title.x = element_text( size=28,face="bold"),
+        axis.title.y = element_text( size=28,face="bold"))+
+  xlab("") + ylab("AroRating") 
+
+
+
+Plot4<-ggplot(data =SCR_RSMSumm2,aes()) +
+  #   #Add geom_() objects
+  geom_point(aes(x = Cat, y = SDAro, color= Cat),
+             position = position_nudge(x =0), alpha = .8, size = 7) +
+  
+  geom_errorbar( aes(x = Cat, y = meanSCR,color= Cat,
+                     ymin = SDAro-(sdSDAro/sqrt(nParticipant)), ymax = SDAro+(sdSDAro/sqrt(nParticipant))),
+                 width = 0.05, size = 2, alpha = 1) +
+  
+  # geom_line(aes(x =  Cat, y = SDSCR, group= Cat, color = Cat),
+  #           position = position_nudge(x = 0), size = 4) +
+  # # scale_y_continuous(breaks=c(0.1,.3,.5,.7,.9),#labels=c("","","", "","","not very good", "","quike ok","","","very good"),
+  #                    limits=c(0, .95),expand = expansion(mult = c(0, .1)))+
+  theme_classic()+ 
+  theme(legend.position="right",
+        legend.title= element_text(size= 24, face= "bold"),
+        legend.text= element_text(size=20),
+        panel.spacing = unit(3, "lines"))+
+  theme(axis.text.x= element_text(size=20),
+        axis.text.y= element_text(size=24),
+        axis.title.x = element_text( size=28,face="bold"),
+        axis.title.y = element_text( size=28,face="bold"))+
+  xlab("") + ylab("SDAroRating") 
+
+
+
+ggarrange(Plot,Plot2 ,Plot3, Plot4, 
+       # SCRVector_SCRSingle_IndividualPlot, SCR_Single_SCR_Vector_PermOutput[["Output"]][["PermutationPlot"]],
+       labels = c("A", "B", "C", "D" ),
+       ncol = 2, nrow =2, widths = c(10,10))
+
+
+
+```
