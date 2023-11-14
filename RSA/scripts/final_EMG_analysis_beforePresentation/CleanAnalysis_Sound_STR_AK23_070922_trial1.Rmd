@@ -1203,7 +1203,7 @@ ggplot(long_data2, aes(x= `rho value`, y=regressor, fill = regressor, alpha = .2
         axis.title.y = element_text( size=15,face="bold"),
         title = element_text(face = "bold", size = 20 ),
         text=element_text(family="Times New Roman"))+
-  labs(tag = "A", title = "PPV from discovery sample")
+  labs(title = "PPV from discovery sample")
   
 
 ```
